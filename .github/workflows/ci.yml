@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      AUTH_SECRET: ci-secret-for-build-validation-min-32-chars
+      AUTH_USERS: '[{"email":"vendedor@concretos.com","passwordHash":"5db78fea75548ddf93e72dbd71bd59f9:45968fae8660410d62cd6527342b2215d9430793842b72e27f92bc5f0809694da237e4a330900dc689e961588bde4e78f2dd78d353692ceb5c8ea61ea5c03e1f","role":"vendedor","name":"Vendedor Demo"}]'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
