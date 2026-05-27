@@ -11,6 +11,7 @@ import {
   FilePlus,
   Gauge,
   HardHat,
+  ListChecks,
   LogIn,
   LogOut,
   MapPin,
@@ -24,18 +25,35 @@ import {
 } from "lucide-react";
 
 const IVA = 0.16;
-const FOLIO = "V1-300";
 
-const cardClass =
-  "rounded-2xl bg-white p-4 shadow ring-1 ring-slate-200 border-l-4 border-orange-600 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg";
+const chartPalette = [
+  {
+    front: "linear-gradient(180deg, #fb923c 0%, #ea580c 52%, #c2410c 100%)",
+    side: "#9a3412",
+    top: "#fdba74",
+  },
+  {
+    front: "linear-gradient(180deg, #64748b 0%, #475569 52%, #334155 100%)",
+    side: "#1e293b",
+    top: "#94a3b8",
+  },
+  {
+    front: "linear-gradient(180deg, #fbbf24 0%, #d97706 52%, #b45309 100%)",
+    side: "#92400e",
+    top: "#fde68a",
+  },
+];
 
-const logoutButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner";
+const chartHeights = ["h-40", "h-32", "h-24"];
 
-const newQuoteButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-600/30 transition-all duration-150 hover:bg-orange-700 active:translate-y-0.5 active:scale-[0.98] active:bg-orange-800 active:shadow-md";
+const MOCK_DASHBOARD_METRICS = {
+  totalVolume: 1240,
+  totalAmount: 2480000,
+  sentCount: 45,
+  closedCount: 28,
+};
 
-const vendorChartBars = [
+const MOCK_VENDOR_CHART_BARS = [
   {
     label: "Vendedor 1",
     height: "h-40",
@@ -61,6 +79,73 @@ const vendorChartBars = [
     top: "#fde68a",
   },
 ];
+
+const MOCK_QUOTES = [
+  {
+    id: "demo-1",
+    folio: "V1-297",
+    fecha: "22/05/2026",
+    cliente: "Obra Alfa",
+    vendedorNombre: "Vendedor Demo",
+    vendedorEmail: "vendedor@concretos.com",
+    volumen: 24,
+    total: 182000,
+    status: "Cerrada",
+  },
+  {
+    id: "demo-2",
+    folio: "V1-298",
+    fecha: "23/05/2026",
+    cliente: "Consorcio Norte",
+    vendedorNombre: "Vendedor Demo",
+    vendedorEmail: "vendedor@concretos.com",
+    volumen: 12,
+    total: 95400,
+    status: "Pendiente",
+  },
+  {
+    id: "demo-3",
+    folio: "V1-299",
+    fecha: "24/05/2026",
+    cliente: "Residencial Delta",
+    vendedorNombre: "Vendedor 3",
+    vendedorEmail: "vendedor3@concretos.com",
+    volumen: 30,
+    total: 133200,
+    status: "Cerrada",
+  },
+  {
+    id: "demo-4",
+    folio: "V1-296",
+    fecha: "21/05/2026",
+    cliente: "Grupo Horizonte",
+    vendedorNombre: "Vendedor 2",
+    vendedorEmail: "vendedor2@concretos.com",
+    volumen: 18,
+    total: 168500,
+    status: "Pendiente",
+  },
+  {
+    id: "demo-5",
+    folio: "V1-295",
+    fecha: "20/05/2026",
+    cliente: "Constructora Atlas",
+    vendedorNombre: "Vendedor Demo",
+    vendedorEmail: "vendedor@concretos.com",
+    volumen: 20,
+    total: 145600,
+    status: "Cerrada",
+  },
+];
+
+const cardClass =
+  "rounded-2xl bg-white p-4 shadow ring-1 ring-slate-200 border-l-4 border-orange-600 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg";
+
+const logoutButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner";
+
+const newQuoteButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-600/30 transition-all duration-150 hover:bg-orange-700 active:translate-y-0.5 active:scale-[0.98] active:bg-orange-800 active:shadow-md";
 
 const resistanceOptions = ["f'c 100", "f'c 200", "f'c 250", "MR 35"];
 const ageOptions = ["Normal 28 dias", "14 Dias", "7 Dias"];
@@ -102,6 +187,31 @@ const nombreDesdeEmail = (correo) => {
     .join(" ");
 };
 
+function buildVendorBars(quotes) {
+  const totals = new Map();
+
+  for (const quote of quotes) {
+    if (quote.status !== "Cerrada") continue;
+    const label = quote.vendedorNombre || "Sin asignar";
+    totals.set(label, (totals.get(label) || 0) + quote.total);
+  }
+
+  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const max = sorted[0]?.[1] || 1;
+
+  return sorted.map(([label, amount], index) => ({
+    label,
+    value: money(amount),
+    height: chartHeights[index] || "h-20",
+    ...chartPalette[index % chartPalette.length],
+    amountRatio: amount / max,
+  }));
+}
+
+function formatVolume(value) {
+  return `${value.toLocaleString("es-MX", { maximumFractionDigits: 1 })} m3`;
+}
+
 export default function Page() {
   const [view, setView] = useState("login");
   const [email, setEmail] = useState("");
@@ -115,6 +225,7 @@ export default function Page() {
   const [solicitante, setSolicitante] = useState("");
   const [cp, setCp] = useState("");
 
+  const [volumen, setVolumen] = useState(24);
   const [resistencia, setResistencia] = useState("f'c 200");
   const [edad, setEdad] = useState("Normal 28 dias");
   const [revenimiento, setRevenimiento] = useState("14 cm");
@@ -127,6 +238,12 @@ export default function Page() {
 
   const [discountPercent, setDiscountPercent] = useState(0);
   const [actionModal, setActionModal] = useState(null);
+  const [quotes, setQuotes] = useState([]);
+  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [isSavingQuote, setIsSavingQuote] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [demoQuotes, setDemoQuotes] = useState(MOCK_QUOTES);
 
   const fechaActual = useMemo(
     () => new Date().toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" }),
@@ -137,6 +254,24 @@ export default function Page() {
     () => sessionUser?.name || nombreDesdeEmail(email),
     [sessionUser, email]
   );
+
+  const loadQuotes = async () => {
+    setQuotesLoading(true);
+    try {
+      const response = await fetch("/api/quotes");
+      if (!response.ok) {
+        setQuotes([]);
+        return;
+      }
+
+      const data = await response.json();
+      setQuotes(Array.isArray(data.quotes) ? data.quotes : []);
+    } catch {
+      setQuotes([]);
+    } finally {
+      setQuotesLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function loadSession() {
@@ -151,6 +286,7 @@ export default function Page() {
         setSessionUser(data.user);
         setEmail(data.user.email);
         setView(data.user.role === "admin" ? "dashboard" : "cotizador");
+        await loadQuotes();
       } catch {
         setView("login");
       } finally {
@@ -161,8 +297,22 @@ export default function Page() {
     loadSession();
   }, []);
 
+  const nextFolio = useMemo(() => {
+    const numbers = quotes.map((quote) => {
+      const match = quote.folio?.match(/V1-(\d+)/);
+      return match ? Number(match[1]) : 0;
+    });
+    const max = numbers.length ? Math.max(...numbers) : 299;
+    return `V1-${max + 1}`;
+  }, [quotes]);
+
+  const vendorDemoQuotes = useMemo(
+    () => demoQuotes.filter((quote) => quote.vendedorEmail === sessionUser?.email),
+    [demoQuotes, sessionUser]
+  );
+
   const priceModel = useMemo(() => {
-    const baseM3 = 24;
+    const baseM3 = Math.max(0.5, Number(volumen) || 0);
     const baseUnit = 1750;
     const resistanceBoost = resistanceFactor[resistencia] ?? 1;
     const ageBoost = edad === "14 Dias" ? 1.06 : edad === "7 Dias" ? 1.1 : 1;
@@ -182,7 +332,7 @@ export default function Page() {
     const total = taxable + iva;
 
     return { baseM3, unitPrice, concreteSubtotal, additiveSubtotal, extrasSubtotal, subtotal, discount, iva, total };
-  }, [resistencia, edad, revenimiento, aditivo, bombaEstacionaria, bombaPluma, domingo, nocturno, discountPercent]);
+  }, [volumen, resistencia, edad, revenimiento, aditivo, bombaEstacionaria, bombaPluma, domingo, nocturno, discountPercent]);
 
   const cpDetected = cp.trim() === "72000";
 
@@ -212,6 +362,7 @@ export default function Page() {
       setSessionUser(data.user);
       setPassword("");
       setView(data.user.role === "admin" ? "dashboard" : "cotizador");
+      await loadQuotes();
     } catch {
       setLoginError("No fue posible conectar con el servidor.");
     } finally {
@@ -223,7 +374,69 @@ export default function Page() {
     await fetch("/api/auth/logout", { method: "POST" });
     setSessionUser(null);
     setPassword("");
+    setQuotes([]);
     setView("login");
+  };
+
+  const handleSaveQuote = async () => {
+    setSaveError("");
+    setIsSavingQuote(true);
+
+    try {
+      const response = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cliente,
+          solicitante,
+          cp,
+          volumen: priceModel.baseM3,
+          resistencia,
+          total: priceModel.total,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSaveError(data.error || "No fue posible guardar la cotizacion.");
+        return;
+      }
+
+      await loadQuotes();
+      setCliente("");
+      setSolicitante("");
+      setCp("");
+      setView("seguimiento");
+    } catch {
+      setSaveError("No fue posible conectar con el servidor.");
+    } finally {
+      setIsSavingQuote(false);
+    }
+  };
+
+  const handleUpdateDemoQuoteStatus = (quoteId, status) => {
+    setStatusUpdatingId(quoteId);
+    setDemoQuotes((current) =>
+      current.map((quote) => (quote.id === quoteId ? { ...quote, status } : quote))
+    );
+    setStatusUpdatingId(null);
+  };
+
+  const resetQuoteForm = () => {
+    setCliente("");
+    setSolicitante("");
+    setCp("");
+    setVolumen(24);
+    setResistencia("f'c 200");
+    setEdad("Normal 28 dias");
+    setRevenimiento("14 cm");
+    setAditivo("Ninguno");
+    setBombaEstacionaria(false);
+    setBombaPluma(false);
+    setDomingo(false);
+    setNocturno(false);
+    setDiscountPercent(0);
+    setSaveError("");
   };
 
   if (authLoading) {
@@ -245,6 +458,14 @@ export default function Page() {
             }`}
           >
             Cotizador
+          </button>
+          <button
+            onClick={() => setView("seguimiento")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              view === "seguimiento" ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            Seguimiento
           </button>
           {sessionUser.role === "admin" && (
             <button
@@ -357,7 +578,7 @@ export default function Page() {
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Folio</p>
-                    <p className="text-sm font-semibold text-slate-800">{FOLIO}</p>
+                    <p className="text-sm font-semibold text-slate-800">{nextFolio}</p>
                   </div>
                 </div>
               </div>
@@ -407,15 +628,13 @@ export default function Page() {
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-orange-500 transition focus:ring-2"
                   />
                 </label>
-                <div className="mt-2 min-h-[30px]">
-                  {cpDetected ? (
+                {cpDetected && (
+                  <div className="mt-2">
                     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                       <CheckCircle2 className="h-3.5 w-3.5" /> Detectado: Puebla Centro | Zona 1 de flete
                     </span>
-                  ) : (
-                    <span className="text-xs italic text-slate-400">Se autocompletara la zona de flete al capturar CP.</span>
-                  )}
-                </div>
+                  </div>
+                )}
               </article>
 
               <article className={cardClass}>
@@ -423,6 +642,20 @@ export default function Page() {
                   <HardHat className="h-4 w-4 text-orange-600" />
                   Paso 3 - Configuracion del concreto
                 </h3>
+                <label className="mb-4 block rounded-xl border-2 border-orange-200 bg-orange-50/60 p-3">
+                  <span className="mb-1 flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                    <Gauge className="h-4 w-4 text-orange-600" />
+                    Volumen (m3)
+                  </span>
+                  <input
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    value={volumen}
+                    onChange={(e) => setVolumen(Number(e.target.value))}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2.5 text-lg font-semibold text-slate-900 outline-none ring-orange-500 transition focus:ring-2"
+                  />
+                </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Resistencia" value={resistencia} onChange={setResistencia} options={resistanceOptions} />
                   <SelectField label="Edad" value={edad} onChange={setEdad} options={ageOptions} />
@@ -509,6 +742,17 @@ export default function Page() {
 
                 <div className="mt-4 grid gap-2">
                   <button
+                    onClick={handleSaveQuote}
+                    disabled={isSavingQuote}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    {isSavingQuote ? "Guardando..." : "Guardar cotizacion"}
+                  </button>
+                  {saveError && (
+                    <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>
+                  )}
+                  <button
                     onClick={() => setActionModal("pdf")}
                     className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
@@ -526,6 +770,81 @@ export default function Page() {
               </article>
             </aside>
           </div>
+        </section>
+      )}
+
+      {view === "seguimiento" && sessionUser && (
+        <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
+          <header className={`mb-4 ${cardClass}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="mb-2 flex items-center gap-3">
+                  <Image
+                    src="/Logo-CN-Color.png"
+                    alt="Concretos Narvaez"
+                    width={120}
+                    height={42}
+                    className="h-9 w-auto object-contain"
+                  />
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
+                    <p className="text-sm font-semibold text-slate-800">{vendedorNombre}</p>
+                  </div>
+                </div>
+                <h2 className="text-xl font-bold text-slate-900">Seguimiento de cotizaciones</h2>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button onClick={handleLogout} className={logoutButtonClass}>
+                  <LogOut className="h-4 w-4" />
+                  Cerrar sesion
+                </button>
+                <button
+                  onClick={() => {
+                    resetQuoteForm();
+                    setView("cotizador");
+                  }}
+                  className={newQuoteButtonClass}
+                >
+                  <FilePlus className="h-4 w-4" />
+                  + Nueva Cotizacion
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <MetricCard
+              title="Mis cotizaciones"
+              value={`${vendorDemoQuotes.length} registradas`}
+              icon={<ListChecks className="h-5 w-5 text-orange-600" />}
+            />
+            <MetricCard
+              title="Pendientes"
+              value={`${vendorDemoQuotes.filter((quote) => quote.status === "Pendiente").length}`}
+              icon={<ClipboardList className="h-5 w-5 text-orange-600" />}
+            />
+            <MetricCard
+              title="Cerradas"
+              value={`${vendorDemoQuotes.filter((quote) => quote.status === "Cerrada").length}`}
+              icon={<CheckCircle2 className="h-5 w-5 text-orange-600" />}
+            />
+          </div>
+
+          <article className={cardClass}>
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
+              <ListChecks className="h-4 w-4 text-orange-600" />
+              Mis cotizaciones
+            </h3>
+            <QuotesTable
+              quotes={vendorDemoQuotes}
+              loading={false}
+              showVendor={false}
+              statusUpdatingId={statusUpdatingId}
+              onStatusChange={handleUpdateDemoQuoteStatus}
+              statusBadge={statusBadge}
+              money={money}
+            />
+          </article>
         </section>
       )}
 
@@ -560,16 +879,28 @@ export default function Page() {
           </header>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <MetricCard title="Volumen Total Cotizado" value="1,240 m3" icon={<Gauge className="h-5 w-5 text-orange-600" />} />
-            <MetricCard title="Monto Total Cotizado" value="$2,480,000 MXN" icon={<BarChart3 className="h-5 w-5 text-orange-600" />} />
-            <MetricCard title="Cotizaciones del Mes" value="45 enviadas / 28 cerradas" icon={<Phone className="h-5 w-5 text-orange-600" />} />
+            <MetricCard
+              title="Volumen Total Cotizado"
+              value={formatVolume(MOCK_DASHBOARD_METRICS.totalVolume)}
+              icon={<Gauge className="h-5 w-5 text-orange-600" />}
+            />
+            <MetricCard
+              title="Monto Total Cotizado"
+              value={money(MOCK_DASHBOARD_METRICS.totalAmount)}
+              icon={<BarChart3 className="h-5 w-5 text-orange-600" />}
+            />
+            <MetricCard
+              title="Cotizaciones del Mes"
+              value={`${MOCK_DASHBOARD_METRICS.sentCount} enviadas / ${MOCK_DASHBOARD_METRICS.closedCount} cerradas`}
+              icon={<Phone className="h-5 w-5 text-orange-600" />}
+            />
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <article className={`${cardClass} lg:col-span-1`}>
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-700">Rendimiento por vendedor</h3>
               <div className="flex h-56 items-end justify-around gap-4 px-2 pb-2">
-                {vendorChartBars.map((bar) => (
+                {MOCK_VENDOR_CHART_BARS.map((bar) => (
                   <Bar key={bar.label} {...bar} />
                 ))}
               </div>
@@ -577,40 +908,15 @@ export default function Page() {
 
             <article className={`${cardClass} lg:col-span-2`}>
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-700">Cotizaciones recientes</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[580px] text-left text-sm">
-                  <thead className="text-xs uppercase text-slate-500">
-                    <tr>
-                      <th className="pb-2">Folio</th>
-                      <th className="pb-2">Fecha</th>
-                      <th className="pb-2">Cliente</th>
-                      <th className="pb-2">Vendedor</th>
-                      <th className="pb-2">Monto</th>
-                      <th className="pb-2">Estatus</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-slate-700">
-                    {[
-                      { folio: "V1-297", fecha: "22/05/2026", cliente: "Obra Alfa", vendedor: "Vendedor 1", monto: "$182,000", status: "Cerrada" },
-                      { folio: "V1-298", fecha: "23/05/2026", cliente: "Consorcio Norte", vendedor: "Vendedor 2", monto: "$95,400", status: "Pendiente" },
-                      { folio: "V1-299", fecha: "24/05/2026", cliente: "Residencial Delta", vendedor: "Vendedor 3", monto: "$133,200", status: "Cerrada" },
-                    ].map((row) => (
-                      <tr key={row.folio} className="border-t border-slate-100">
-                        <td className="py-2.5 font-semibold">{row.folio}</td>
-                        <td>{row.fecha}</td>
-                        <td>{row.cliente}</td>
-                        <td>{row.vendedor}</td>
-                        <td>{row.monto}</td>
-                        <td>
-                          <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(row.status)}`}>
-                            {row.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <QuotesTable
+                quotes={demoQuotes}
+                loading={false}
+                showVendor
+                statusUpdatingId={statusUpdatingId}
+                onStatusChange={handleUpdateDemoQuoteStatus}
+                statusBadge={statusBadge}
+                money={money}
+              />
             </article>
           </div>
         </section>
@@ -640,6 +946,65 @@ export default function Page() {
         </div>
       )}
     </main>
+  );
+}
+
+function QuotesTable({
+  quotes,
+  loading,
+  showVendor,
+  statusUpdatingId,
+  onStatusChange,
+  statusBadge,
+  money,
+}) {
+  if (loading) {
+    return <p className="py-8 text-center text-sm text-slate-500">Cargando cotizaciones...</p>;
+  }
+
+  if (!quotes.length) {
+    return <p className="py-8 text-center text-sm text-slate-500">Aun no hay cotizaciones guardadas.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] text-left text-sm">
+        <thead className="text-xs uppercase text-slate-500">
+          <tr>
+            <th className="pb-2">Folio</th>
+            <th className="pb-2">Fecha</th>
+            <th className="pb-2">Cliente</th>
+            {showVendor && <th className="pb-2">Vendedor</th>}
+            <th className="pb-2">Volumen</th>
+            <th className="pb-2">Monto</th>
+            <th className="pb-2">Estatus</th>
+          </tr>
+        </thead>
+        <tbody className="text-slate-700">
+          {quotes.map((quote) => (
+            <tr key={quote.id} className="border-t border-slate-100">
+              <td className="py-2.5 font-semibold">{quote.folio}</td>
+              <td>{quote.fecha}</td>
+              <td>{quote.cliente}</td>
+              {showVendor && <td>{quote.vendedorNombre}</td>}
+              <td>{formatVolume(Number(quote.volumen) || 0)}</td>
+              <td>{money(Number(quote.total) || 0)}</td>
+              <td>
+                <select
+                  value={quote.status}
+                  disabled={statusUpdatingId === quote.id}
+                  onChange={(event) => onStatusChange(quote.id, event.target.value)}
+                  className={`rounded-full border px-2 py-1 text-xs font-semibold outline-none ring-orange-500 transition focus:ring-2 disabled:opacity-60 ${statusBadge(quote.status)}`}
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Cerrada">Cerrada</option>
+                </select>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
