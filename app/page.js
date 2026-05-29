@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   BarChart3,
+  Banknote,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  Eye,
+  EyeOff,
   FileText,
   FilePlus,
   Gauge,
@@ -15,36 +18,17 @@ import {
   LogIn,
   LogOut,
   MapPin,
-  PackageCheck,
-  Percent,
   Phone,
+  Printer,
   Send,
   ShieldCheck,
+  Truck,
   UserRound,
   Users,
 } from "lucide-react";
+import { getTenant, NEUTRAL_TENANT } from "@/lib/tenants/themes";
 
 const IVA = 0.16;
-
-const chartPalette = [
-  {
-    front: "linear-gradient(180deg, #fb923c 0%, #ea580c 52%, #c2410c 100%)",
-    side: "#9a3412",
-    top: "#fdba74",
-  },
-  {
-    front: "linear-gradient(180deg, #64748b 0%, #475569 52%, #334155 100%)",
-    side: "#1e293b",
-    top: "#94a3b8",
-  },
-  {
-    front: "linear-gradient(180deg, #fbbf24 0%, #d97706 52%, #b45309 100%)",
-    side: "#92400e",
-    top: "#fde68a",
-  },
-];
-
-const chartHeights = ["h-40", "h-32", "h-24"];
 
 const MOCK_DASHBOARD_METRICS = {
   totalVolume: 1240,
@@ -139,31 +123,70 @@ const MOCK_QUOTES = [
 ];
 
 const cardClass =
-  "rounded-2xl bg-white p-4 shadow ring-1 ring-slate-200 border-l-4 border-orange-600 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg";
+  "rounded-2xl bg-white p-4 shadow ring-1 ring-slate-200 border-l-4 border-[var(--brand)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg";
 
 const logoutButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner";
 
 const newQuoteButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-600/30 transition-all duration-150 hover:bg-orange-700 active:translate-y-0.5 active:scale-[0.98] active:bg-orange-800 active:shadow-md";
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-150 hover:bg-[var(--brand-strong)] active:translate-y-0.5 active:scale-[0.98] active:bg-[var(--brand-strong)] active:shadow-md";
 
-const resistanceOptions = ["f'c 100", "f'c 200", "f'c 250", "MR 35"];
-const ageOptions = ["Normal 28 dias", "14 Dias", "7 Dias"];
+const inputCotizadorClass =
+  "input-cotizador w-full rounded-xl border border-slate-200 bg-slate-50 outline-none transition focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70";
+
+const FC_RESISTANCE_VALUES = [100, 150, 200, 250, 300, 350];
+const MR_RESISTANCE_VALUES = [35, 36, 38, 40, 42, 45, 48, 50];
+const RF_RESISTANCE_VALUES = [25, 50, 75, 100];
+
+const resistanceOptions = [
+  ...FC_RESISTANCE_VALUES.map((value) => `f'c ${value}`),
+  ...MR_RESISTANCE_VALUES.map((value) => `MR ${value}`),
+  ...RF_RESISTANCE_VALUES.map((value) => `RF ${value}`),
+];
+
+function getResistanceFactor(resistencia) {
+  if (resistencia.startsWith("f'c ")) {
+    const value = Number(resistencia.slice(4));
+    if (!Number.isFinite(value)) return 1;
+    return 1 + ((value - 100) / 250) * 0.25;
+  }
+
+  if (resistencia.startsWith("MR ")) {
+    const value = Number(resistencia.slice(3));
+    if (!Number.isFinite(value)) return 1.2;
+    return 1.2 + ((value - 35) / 15) * 0.1;
+  }
+
+  if (resistencia.startsWith("RF ")) {
+    const value = Number(resistencia.slice(3));
+    if (!Number.isFinite(value)) return 1.1;
+    return 1.1 + ((value - 25) / 75) * 0.15;
+  }
+
+  return 1;
+}
+
+const ageOptions = ["1 día", "3 días", "7 días", "14 días", "Normal 28 días"];
 const slumpOptions = ["14 cm", "18 cm"];
-const additiveOptions = ["Ninguno", "Impermeabilizante", "Fluido"];
 
-const resistanceFactor = {
-  "f'c 100": 1,
-  "f'c 200": 1.1,
-  "f'c 250": 1.2,
-  "MR 35": 1.25,
+const AGE_COST_PER_M3 = {
+  "1 día": 700,
+  "3 días": 500,
+  "7 días": 300,
+  "14 días": 100,
 };
 
 const additiveCost = {
   Ninguno: 0,
-  Impermeabilizante: 180,
-  Fluido: 240,
+  "Fibra de polipropileno": 150,
+  Impermeabilizante: 100,
 };
+
+const additiveOptions = Object.keys(additiveCost);
+
+function getAgeCostPerM3(edad) {
+  return AGE_COST_PER_M3[edad] ?? 0;
+}
 
 const extraServiceCost = {
   bombaEstacionaria: 1800,
@@ -171,6 +194,8 @@ const extraServiceCost = {
   domingo: 900,
   nocturno: 750,
 };
+
+const VACIO_COST_PER_M3 = 600;
 
 const money = (value) =>
   value.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
@@ -187,35 +212,95 @@ const nombreDesdeEmail = (correo) => {
     .join(" ");
 };
 
-function buildVendorBars(quotes) {
-  const totals = new Map();
+function formatDayKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
-  for (const quote of quotes) {
-    if (quote.status !== "Cerrada") continue;
-    const label = quote.vendedorNombre || "Sin asignar";
-    totals.set(label, (totals.get(label) || 0) + quote.total);
+function todayDayKey() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return formatDayKey(today);
+}
+
+function buildLast7DayTabs() {
+  const tabs = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - offset);
+    const key = formatDayKey(date);
+
+    const day = date.getDate();
+    const month = date.toLocaleDateString("es-MX", { month: "short" }).toUpperCase();
+    const datePart = `${day} ${month}`;
+    const weekday = date.toLocaleDateString("es-MX", { weekday: "short" });
+    const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+
+    let label;
+    if (offset === 0) label = `Hoy | ${datePart}`;
+    else if (offset === 1) label = `Ayer | ${datePart}`;
+    else label = `${capitalizedWeekday} | ${datePart}`;
+
+    tabs.push({
+      key,
+      label,
+    });
   }
 
-  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const max = sorted[0]?.[1] || 1;
+  return tabs;
+}
 
-  return sorted.map(([label, amount], index) => ({
-    label,
-    value: money(amount),
-    height: chartHeights[index] || "h-20",
-    ...chartPalette[index % chartPalette.length],
-    amountRatio: amount / max,
-  }));
+function getQuoteDayKey(quote) {
+  if (quote.creadoAt) {
+    const parsed = new Date(quote.creadoAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      parsed.setHours(0, 0, 0, 0);
+      return formatDayKey(parsed);
+    }
+  }
+
+  if (typeof quote.fecha === "string" && quote.fecha.includes("/")) {
+    const [day, month, year] = quote.fecha.split("/");
+    if (day && month && year) {
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+  }
+
+  return null;
 }
 
 function formatVolume(value) {
   return `${value.toLocaleString("es-MX", { maximumFractionDigits: 1 })} m3`;
 }
 
+function normalizeWhatsAppPhone(value) {
+  return value.replace(/\D/g, "").slice(0, 10);
+}
+
+function getQuotePdfUrl(folio) {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/pdf/${encodeURIComponent(folio)}`;
+  }
+  return `/pdf/${encodeURIComponent(folio)}`;
+}
+
+function buildWhatsAppUrl(phone, { solicitante, cliente, folio, total }) {
+  const nombre = (solicitante || cliente).trim();
+  const pdfUrl = getQuotePdfUrl(folio);
+  const text = `Hola ${nombre}, le anexo su cotizacion con Folio ${folio} por un total de ${money(total)}. Puede descargar su comprobante aqui: ${pdfUrl}`;
+  return `https://wa.me/52${phone}?text=${encodeURIComponent(text)}`;
+}
+
 export default function Page() {
   const [view, setView] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [sessionUser, setSessionUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginError, setLoginError] = useState("");
@@ -223,11 +308,12 @@ export default function Page() {
 
   const [cliente, setCliente] = useState("");
   const [solicitante, setSolicitante] = useState("");
+  const [whatsappCliente, setWhatsappCliente] = useState("");
   const [cp, setCp] = useState("");
 
-  const [volumen, setVolumen] = useState(24);
+  const [volumen, setVolumen] = useState("");
   const [resistencia, setResistencia] = useState("f'c 200");
-  const [edad, setEdad] = useState("Normal 28 dias");
+  const [edad, setEdad] = useState("Normal 28 días");
   const [revenimiento, setRevenimiento] = useState("14 cm");
   const [aditivo, setAditivo] = useState("Ninguno");
 
@@ -235,15 +321,22 @@ export default function Page() {
   const [bombaPluma, setBombaPluma] = useState(false);
   const [domingo, setDomingo] = useState(false);
   const [nocturno, setNocturno] = useState(false);
+  const [cargoVacio, setCargoVacio] = useState(false);
+  const [cargoVacioM3, setCargoVacioM3] = useState("");
+  const [cargoDistancia, setCargoDistancia] = useState(false);
+  const [cargoDistanciaMonto, setCargoDistanciaMonto] = useState("");
 
-  const [discountPercent, setDiscountPercent] = useState(0);
-  const [actionModal, setActionModal] = useState(null);
-  const [quotes, setQuotes] = useState([]);
-  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [documentActionsOpen, setDocumentActionsOpen] = useState(false);
+  const [emittedQuote, setEmittedQuote] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [isSavingQuote, setIsSavingQuote] = useState(false);
+  const [displayFolio, setDisplayFolio] = useState("—");
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
   const [demoQuotes, setDemoQuotes] = useState(MOCK_QUOTES);
+  const [seguimientoQuotes, setSeguimientoQuotes] = useState([]);
+  const [seguimientoLoading, setSeguimientoLoading] = useState(false);
+  const [seguimientoDayKey, setSeguimientoDayKey] = useState(todayDayKey);
 
   const fechaActual = useMemo(
     () => new Date().toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" }),
@@ -255,21 +348,26 @@ export default function Page() {
     [sessionUser, email]
   );
 
-  const loadQuotes = async () => {
-    setQuotesLoading(true);
+  // Tema activo segun la empresa del perfil autenticado.
+  // Antes de iniciar sesion (o para la dirección) el tema es neutral.
+  const tenant = useMemo(() => getTenant(sessionUser?.empresa), [sessionUser]);
+  const themeClass = sessionUser ? tenant.themeClass : NEUTRAL_TENANT.themeClass;
+
+  const loadSeguimientoQuotes = async () => {
+    setSeguimientoLoading(true);
     try {
       const response = await fetch("/api/quotes");
       if (!response.ok) {
-        setQuotes([]);
+        setSeguimientoQuotes([]);
         return;
       }
 
       const data = await response.json();
-      setQuotes(Array.isArray(data.quotes) ? data.quotes : []);
+      setSeguimientoQuotes(Array.isArray(data.quotes) ? data.quotes : []);
     } catch {
-      setQuotes([]);
+      setSeguimientoQuotes([]);
     } finally {
-      setQuotesLoading(false);
+      setSeguimientoLoading(false);
     }
   };
 
@@ -286,7 +384,6 @@ export default function Page() {
         setSessionUser(data.user);
         setEmail(data.user.email);
         setView(data.user.role === "admin" ? "dashboard" : "cotizador");
-        await loadQuotes();
       } catch {
         setView("login");
       } finally {
@@ -297,44 +394,110 @@ export default function Page() {
     loadSession();
   }, []);
 
-  const nextFolio = useMemo(() => {
-    const numbers = quotes.map((quote) => {
-      const match = quote.folio?.match(/V1-(\d+)/);
-      return match ? Number(match[1]) : 0;
-    });
-    const max = numbers.length ? Math.max(...numbers) : 299;
-    return `V1-${max + 1}`;
-  }, [quotes]);
-
-  const vendorDemoQuotes = useMemo(
-    () => demoQuotes.filter((quote) => quote.vendedorEmail === sessionUser?.email),
-    [demoQuotes, sessionUser]
-  );
-
   const priceModel = useMemo(() => {
-    const baseM3 = Math.max(0.5, Number(volumen) || 0);
+    const parsedVolume = Number(volumen);
+    const baseM3 = volumen === "" || !Number.isFinite(parsedVolume) ? 0 : Math.max(0.5, parsedVolume);
     const baseUnit = 1750;
-    const resistanceBoost = resistanceFactor[resistencia] ?? 1;
-    const ageBoost = edad === "14 Dias" ? 1.06 : edad === "7 Dias" ? 1.1 : 1;
+    const resistanceBoost = getResistanceFactor(resistencia);
     const slumpBoost = revenimiento === "18 cm" ? 1.04 : 1;
-    const unitPrice = baseUnit * resistanceBoost * ageBoost * slumpBoost;
-    const concreteSubtotal = unitPrice * baseM3;
-    const additiveSubtotal = additiveCost[aditivo] * baseM3;
+    const unitPrice = baseUnit * resistanceBoost * slumpBoost;
+    const concreteSubtotal = baseM3 > 0 ? unitPrice * baseM3 : 0;
+    const ageRate = getAgeCostPerM3(edad);
+    const ageSubtotal = baseM3 > 0 ? ageRate * baseM3 : 0;
+    const additiveRate = additiveCost[aditivo] ?? 0;
+    const additiveSubtotal = baseM3 > 0 && aditivo !== "Ninguno" ? additiveRate * baseM3 : 0;
     const extrasSubtotal =
       (bombaEstacionaria ? extraServiceCost.bombaEstacionaria : 0) +
       (bombaPluma ? extraServiceCost.bombaPluma : 0) +
       (domingo ? extraServiceCost.domingo : 0) +
       (nocturno ? extraServiceCost.nocturno : 0);
-    const subtotal = concreteSubtotal + additiveSubtotal + extrasSubtotal;
-    const discount = subtotal * Math.max(0, Math.min(discountPercent, 30)) / 100;
+    const parsedVacioM3 = Number(cargoVacioM3);
+    const vacioM3 =
+      cargoVacio && cargoVacioM3 !== "" && Number.isFinite(parsedVacioM3) && parsedVacioM3 > 0
+        ? parsedVacioM3
+        : 0;
+    const vacioSubtotal = vacioM3 * VACIO_COST_PER_M3;
+    const parsedDistanciaMonto = Number(cargoDistanciaMonto);
+    const distanciaSubtotal =
+      cargoDistancia &&
+      cargoDistanciaMonto !== "" &&
+      Number.isFinite(parsedDistanciaMonto) &&
+      parsedDistanciaMonto > 0
+        ? parsedDistanciaMonto
+        : 0;
+    const subtotal =
+      concreteSubtotal + ageSubtotal + additiveSubtotal + extrasSubtotal + vacioSubtotal + distanciaSubtotal;
+    const parsedDiscountPercent = discountPercent === "" ? 0 : Number(discountPercent);
+    const safeDiscountPercent = Number.isFinite(parsedDiscountPercent)
+      ? Math.max(0, Math.min(parsedDiscountPercent, 30))
+      : 0;
+    const discount = subtotal * safeDiscountPercent / 100;
     const taxable = subtotal - discount;
     const iva = taxable * IVA;
     const total = taxable + iva;
 
-    return { baseM3, unitPrice, concreteSubtotal, additiveSubtotal, extrasSubtotal, subtotal, discount, iva, total };
-  }, [volumen, resistencia, edad, revenimiento, aditivo, bombaEstacionaria, bombaPluma, domingo, nocturno, discountPercent]);
+    return {
+      baseM3,
+      unitPrice,
+      concreteSubtotal,
+      ageRate,
+      ageSubtotal,
+      additiveRate,
+      additiveSubtotal,
+      extrasSubtotal,
+      vacioM3,
+      vacioSubtotal,
+      distanciaSubtotal,
+      subtotal,
+      discount,
+      iva,
+      total,
+    };
+  }, [
+    volumen,
+    resistencia,
+    edad,
+    revenimiento,
+    aditivo,
+    bombaEstacionaria,
+    bombaPluma,
+    domingo,
+    nocturno,
+    cargoVacio,
+    cargoVacioM3,
+    cargoDistancia,
+    cargoDistanciaMonto,
+    discountPercent,
+  ]);
 
   const cpDetected = cp.trim() === "72000";
+  const formLocked = Boolean(emittedQuote);
+
+  const seguimientoDayTabs = useMemo(
+    () => (view === "seguimiento" ? buildLast7DayTabs() : []),
+    [view]
+  );
+
+  const seguimientoDayCounts = useMemo(() => {
+    const counts = Object.fromEntries(seguimientoDayTabs.map((tab) => [tab.key, 0]));
+
+    for (const quote of seguimientoQuotes) {
+      const dayKey = getQuoteDayKey(quote);
+      if (dayKey && dayKey in counts) {
+        counts[dayKey] += 1;
+      }
+    }
+
+    return counts;
+  }, [seguimientoQuotes, seguimientoDayTabs]);
+
+  const seguimientoQuotesByDay = useMemo(
+    () => seguimientoQuotes.filter((quote) => getQuoteDayKey(quote) === seguimientoDayKey),
+    [seguimientoQuotes, seguimientoDayKey]
+  );
+
+  const activeSeguimientoTab =
+    seguimientoDayTabs.find((tab) => tab.key === seguimientoDayKey) ?? seguimientoDayTabs[0];
 
   const statusBadge = (status) =>
     status === "Cerrada"
@@ -361,8 +524,8 @@ export default function Page() {
 
       setSessionUser(data.user);
       setPassword("");
+      setShowPassword(false);
       setView(data.user.role === "admin" ? "dashboard" : "cotizador");
-      await loadQuotes();
     } catch {
       setLoginError("No fue posible conectar con el servidor.");
     } finally {
@@ -374,12 +537,38 @@ export default function Page() {
     await fetch("/api/auth/logout", { method: "POST" });
     setSessionUser(null);
     setPassword("");
-    setQuotes([]);
+    setShowPassword(false);
     setView("login");
   };
 
-  const handleSaveQuote = async () => {
+  const emitQuote = async () => {
     setSaveError("");
+
+    if (emittedQuote) {
+      return emittedQuote;
+    }
+
+    if (!cliente.trim()) {
+      setSaveError("El nombre del cliente es obligatorio.");
+      return null;
+    }
+
+    const phone = normalizeWhatsAppPhone(whatsappCliente);
+    if (phone.length !== 10) {
+      setSaveError("El WhatsApp del cliente debe tener 10 digitos.");
+      return null;
+    }
+
+    if (!cp.trim()) {
+      setSaveError("El codigo postal es obligatorio.");
+      return null;
+    }
+
+    if (priceModel.baseM3 <= 0) {
+      setSaveError("Ingresa el volumen en m3 para emitir la cotizacion.");
+      return null;
+    }
+
     setIsSavingQuote(true);
 
     try {
@@ -389,29 +578,104 @@ export default function Page() {
         body: JSON.stringify({
           cliente,
           solicitante,
+          whatsappCliente: phone,
           cp,
           volumen: priceModel.baseM3,
           resistencia,
-          total: priceModel.total,
+          edad,
+          revenimiento,
+          aditivo,
+          bombaEstacionaria,
+          bombaPluma,
+          domingo,
+          nocturno,
+          discountPercent:
+            discountPercent === ""
+              ? 0
+              : Math.max(0, Math.min(Number(discountPercent) || 0, 30)),
+          priceModel: {
+            subtotal: priceModel.subtotal,
+            iva: priceModel.iva,
+            total: priceModel.total,
+          },
         }),
       });
       const data = await response.json();
 
       if (!response.ok) {
-        setSaveError(data.error || "No fue posible guardar la cotizacion.");
-        return;
+        setSaveError(data.error || "No fue posible emitir la cotizacion.");
+        return null;
       }
 
-      await loadQuotes();
-      setCliente("");
-      setSolicitante("");
-      setCp("");
-      setView("seguimiento");
+      const quote = {
+        id: data.quote.id,
+        folio_institucional: data.quote.folio_institucional,
+        total: data.quote.total,
+      };
+
+      setDisplayFolio(data.quote.folio_institucional);
+      setEmittedQuote(quote);
+      loadSeguimientoQuotes();
+      return quote;
     } catch {
       setSaveError("No fue posible conectar con el servidor.");
+      return null;
     } finally {
       setIsSavingQuote(false);
     }
+  };
+
+  const handleEmitQuote = async () => {
+    const quote = await emitQuote();
+    if (quote) {
+      setDocumentActionsOpen(true);
+    }
+  };
+
+  const handleWhatsApp = async () => {
+    setSaveError("");
+
+    const phone = normalizeWhatsAppPhone(whatsappCliente);
+    if (phone.length !== 10) {
+      setSaveError("El WhatsApp del cliente debe tener 10 digitos.");
+      return;
+    }
+
+    const quote = await emitQuote();
+    if (!quote) {
+      return;
+    }
+
+    setDocumentActionsOpen(true);
+
+    const url = buildWhatsAppUrl(phone, {
+      solicitante,
+      cliente,
+      folio: quote.folio_institucional,
+      total: quote.total,
+    });
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownloadPdf = () => {
+    if (!emittedQuote) {
+      return;
+    }
+
+    window.open(getQuotePdfUrl(emittedQuote.folio_institucional), "_blank", "noopener,noreferrer");
+  };
+
+  const handlePrintEmitted = () => {
+    if (!emittedQuote) {
+      return;
+    }
+
+    window.open(
+      `${getQuotePdfUrl(emittedQuote.folio_institucional)}?print=1`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
   const handleUpdateDemoQuoteStatus = (quoteId, status) => {
@@ -422,21 +686,53 @@ export default function Page() {
     setStatusUpdatingId(null);
   };
 
+  const handleUpdateSeguimientoQuoteStatus = async (quoteId, status) => {
+    setStatusUpdatingId(quoteId);
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      setSeguimientoQuotes((current) =>
+        current.map((quote) => (quote.id === quoteId ? data.quote : quote))
+      );
+    } catch {
+      // Sin cambios locales si falla la actualizacion remota.
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const resetQuoteForm = () => {
     setCliente("");
     setSolicitante("");
+    setWhatsappCliente("");
     setCp("");
-    setVolumen(24);
+    setVolumen("");
     setResistencia("f'c 200");
-    setEdad("Normal 28 dias");
+    setEdad("Normal 28 días");
     setRevenimiento("14 cm");
     setAditivo("Ninguno");
     setBombaEstacionaria(false);
     setBombaPluma(false);
     setDomingo(false);
     setNocturno(false);
-    setDiscountPercent(0);
+    setCargoVacio(false);
+    setCargoVacioM3("");
+    setCargoDistancia(false);
+    setCargoDistanciaMonto("");
+    setDiscountPercent("");
     setSaveError("");
+    setDisplayFolio("—");
+    setEmittedQuote(null);
+    setDocumentActionsOpen(false);
   };
 
   if (authLoading) {
@@ -448,21 +744,25 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main className={`min-h-screen bg-slate-100 text-slate-900 ${themeClass}`}>
       {sessionUser && (
         <div className="fixed bottom-3 right-3 z-50 flex gap-2 rounded-full bg-white/90 p-1 shadow-lg ring-1 ring-slate-200 backdrop-blur">
           <button
             onClick={() => setView("cotizador")}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              view === "cotizador" ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              view === "cotizador" ? "bg-[var(--brand)] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
             Cotizador
           </button>
           <button
-            onClick={() => setView("seguimiento")}
+            onClick={() => {
+              setSeguimientoDayKey(todayDayKey());
+              setView("seguimiento");
+              loadSeguimientoQuotes();
+            }}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              view === "seguimiento" ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              view === "seguimiento" ? "bg-[var(--brand)] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
             Seguimiento
@@ -471,7 +771,7 @@ export default function Page() {
             <button
               onClick={() => setView("dashboard")}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                view === "dashboard" ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                view === "dashboard" ? "bg-[var(--brand)] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               Dashboard
@@ -482,21 +782,34 @@ export default function Page() {
 
       {view === "login" && (
         <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-8">
-          <div className="rounded-2xl border-l-4 border-orange-600 bg-white p-6 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl">
+          <div className="rounded-2xl border-l-4 border-slate-800 bg-white p-6 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl">
             <div className="mb-7 text-center">
-              <div className="mx-auto mb-10 flex h-36 w-[19rem] items-center justify-center rounded-3xl border-2 border-orange-500 bg-orange-50/40 px-4 shadow-[0_0_0_3px_rgba(234,88,12,0.2),0_16px_36px_-18px_rgba(234,88,12,0.75)]">
-                <Image
-                  src="/Logo-CN-Color.png"
-                  alt="Concretos Narvaez"
-                  width={260}
-                  height={120}
-                  className="h-20 w-auto object-contain"
-                  priority
-                />
+              <div className="logos-frame-glow mx-auto mb-8 flex h-28 w-full items-stretch rounded-3xl bg-slate-50 px-2">
+                <div className="flex flex-1 items-center justify-center px-3">
+                  <Image
+                    src="/Logo-CN-Color.png"
+                    alt="Concretos Narváez"
+                    width={150}
+                    height={70}
+                    className="h-12 w-auto object-contain"
+                    priority
+                  />
+                </div>
+                <span className="my-4 w-0.5 self-stretch rounded-full bg-slate-300" aria-hidden="true" />
+                <div className="flex flex-1 items-center justify-center px-3">
+                  <Image
+                    src="/logo-tepexi.jpeg"
+                    alt="Concretos Tepexi"
+                    width={150}
+                    height={70}
+                    className="h-14 w-auto rounded object-contain"
+                    priority
+                  />
+                </div>
               </div>
-              <p className="mt-5 text-sm font-bold uppercase tracking-[0.14em] text-slate-700">
-                Plataforma inteligente de cotizaciones
-              </p>
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">
+                Ecosistema de Cotización Corporativo
+              </h1>
             </div>
 
             <form className="space-y-4" onSubmit={handleLogin}>
@@ -516,14 +829,22 @@ export default function Page() {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700">Contrasena</span>
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3">
-                  <ShieldCheck className="h-4 w-4 text-slate-400" />
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-slate-400" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="********"
                     className="w-full bg-transparent py-3 text-sm outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-600"
+                    aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </label>
 
@@ -534,9 +855,11 @@ export default function Page() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-orange-600/30 transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-70"
+                className="shine-sweep relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                <LogIn className="h-4 w-4" /> {isSubmitting ? "Validando..." : "Cotizar"}
+                <span className="relative z-10 flex items-center gap-2">
+                  <LogIn className="h-4 w-4" /> {isSubmitting ? "Validando..." : "Ingresar"}
+                </span>
               </button>
             </form>
           </div>
@@ -549,16 +872,11 @@ export default function Page() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-3">
-                  <Image
-                    src="/Logo-CN-Color.png"
-                    alt="Concretos Narvaez"
-                    width={120}
-                    height={42}
-                    className="h-9 w-auto object-contain"
-                  />
+                  <HeaderLogo tenant={tenant} />
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
                     <p className="text-sm font-semibold text-slate-800">{vendedorNombre}</p>
+                    <p className="text-xs font-semibold text-[var(--brand)]">{tenant.name}</p>
                   </div>
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">Cotizador de Concreto Premezclado</h2>
@@ -578,7 +896,7 @@ export default function Page() {
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Folio</p>
-                    <p className="text-sm font-semibold text-slate-800">{nextFolio}</p>
+                    <p className="text-sm font-semibold text-slate-800">{displayFolio}</p>
                   </div>
                 </div>
               </div>
@@ -589,7 +907,7 @@ export default function Page() {
             <div className="space-y-4 lg:col-span-3">
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <Users className="h-4 w-4 text-orange-600" />
+                  <Users className="h-4 w-4 text-[var(--brand)]" />
                   Paso 1 - Datos
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -599,16 +917,33 @@ export default function Page() {
                       value={cliente}
                       onChange={(e) => setCliente(e.target.value)}
                       placeholder="Constructora Atlas"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-orange-500 transition focus:ring-2"
+                      disabled={formLocked}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-[var(--brand)] transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
                     />
                   </label>
                   <label className="block">
+                    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
+                      <Phone className="h-4 w-4 text-[var(--brand)]" />
+                      WhatsApp del Cliente (10 digitos)
+                    </span>
+                    <input
+                      value={whatsappCliente}
+                      onChange={(e) => setWhatsappCliente(normalizeWhatsAppPhone(e.target.value))}
+                      placeholder="2221234567"
+                      inputMode="numeric"
+                      maxLength={10}
+                      disabled={formLocked}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-[var(--brand)] transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
+                    />
+                  </label>
+                  <label className="block sm:col-span-2">
                     <span className="mb-1 block text-sm font-medium text-slate-700">Solicitante</span>
                     <input
                       value={solicitante}
                       onChange={(e) => setSolicitante(e.target.value)}
                       placeholder="Ing. Perez"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-orange-500 transition focus:ring-2"
+                      disabled={formLocked}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-[var(--brand)] transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
                     />
                   </label>
                 </div>
@@ -616,7 +951,7 @@ export default function Page() {
 
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <MapPin className="h-4 w-4 text-orange-600" />
+                  <MapPin className="h-4 w-4 text-[var(--brand)]" />
                   Paso 2 - Ubicacion
                 </h3>
                 <label className="block">
@@ -625,7 +960,8 @@ export default function Page() {
                     value={cp}
                     onChange={(e) => setCp(e.target.value)}
                     placeholder="Escribe 72000 para demo"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-orange-500 transition focus:ring-2"
+                    disabled={formLocked}
+                    className={`${inputCotizadorClass} px-3 py-2.5 text-sm`}
                   />
                 </label>
                 {cpDetected && (
@@ -639,12 +975,12 @@ export default function Page() {
 
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <HardHat className="h-4 w-4 text-orange-600" />
+                  <HardHat className="h-4 w-4 text-[var(--brand)]" />
                   Paso 3 - Configuracion del concreto
                 </h3>
-                <label className="mb-4 block rounded-xl border-2 border-orange-200 bg-orange-50/60 p-3">
+                <label className="volume-field-wrap mb-4 block rounded-xl border-2 p-3">
                   <span className="mb-1 flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                    <Gauge className="h-4 w-4 text-orange-600" />
+                    <Truck className="h-4 w-4 text-[var(--brand)]" />
                     Volumen (m3)
                   </span>
                   <input
@@ -652,42 +988,102 @@ export default function Page() {
                     min={0.5}
                     step={0.5}
                     value={volumen}
-                    onChange={(e) => setVolumen(Number(e.target.value))}
-                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2.5 text-lg font-semibold text-slate-900 outline-none ring-orange-500 transition focus:ring-2"
+                    onChange={(e) => setVolumen(e.target.value)}
+                    placeholder="24"
+                    disabled={formLocked}
+                    className={`${inputCotizadorClass} bg-white px-3 py-2.5 text-lg font-semibold text-slate-900`}
                   />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Resistencia" value={resistencia} onChange={setResistencia} options={resistanceOptions} />
-                  <SelectField label="Edad" value={edad} onChange={setEdad} options={ageOptions} />
-                  <SelectField label="Revenimiento" value={revenimiento} onChange={setRevenimiento} options={slumpOptions} />
-                  <SelectField label="Aditivo" value={aditivo} onChange={setAditivo} options={additiveOptions} />
+                  <SelectField label="Resistencia" value={resistencia} onChange={setResistencia} options={resistanceOptions} disabled={formLocked} />
+                  <SelectField label="Edad" value={edad} onChange={setEdad} options={ageOptions} disabled={formLocked} />
+                  <SelectField label="Revenimiento" value={revenimiento} onChange={setRevenimiento} options={slumpOptions} disabled={formLocked} />
+                  <SelectField label="Adicionante" value={aditivo} onChange={setAditivo} options={additiveOptions} disabled={formLocked} />
                 </div>
               </article>
 
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <PackageCheck className="h-4 w-4 text-orange-600" />
+                  <ListChecks className="h-4 w-4 text-[var(--brand)]" />
                   Paso 4 - Servicios extra
                 </h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <CheckOption label="Bomba Estacionaria" checked={bombaEstacionaria} onChange={setBombaEstacionaria} />
-                  <CheckOption label="Bomba Pluma" checked={bombaPluma} onChange={setBombaPluma} />
-                  <CheckOption label="Servicio en Domingo" checked={domingo} onChange={setDomingo} />
-                  <CheckOption label="Horario Nocturno" checked={nocturno} onChange={setNocturno} />
+                  <CheckOption label="Bomba Estacionaria" checked={bombaEstacionaria} onChange={setBombaEstacionaria} disabled={formLocked} />
+                  <CheckOption label="Bomba Pluma" checked={bombaPluma} onChange={setBombaPluma} disabled={formLocked} />
+                  <CheckOption label="Servicio en Domingo" checked={domingo} onChange={setDomingo} disabled={formLocked} />
+                  <CheckOption label="Horario Nocturno" checked={nocturno} onChange={setNocturno} disabled={formLocked} />
+                  <div className="space-y-2">
+                    <CheckOption
+                      label="Cargo por distancia"
+                      checked={cargoDistancia}
+                      disabled={formLocked}
+                      onChange={(checked) => {
+                        setCargoDistancia(checked);
+                        if (!checked) setCargoDistanciaMonto("");
+                      }}
+                    />
+                    {cargoDistancia && (
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          Monto a sumar al desglose (MXN)
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={cargoDistanciaMonto}
+                          onChange={(e) => setCargoDistanciaMonto(e.target.value)}
+                          placeholder="1500"
+                          disabled={formLocked}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-[var(--brand)] transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <CheckOption
+                      label="Cargo por vacio por m3"
+                      checked={cargoVacio}
+                      disabled={formLocked}
+                      onChange={(checked) => {
+                        setCargoVacio(checked);
+                        if (!checked) setCargoVacioM3("");
+                      }}
+                    />
+                    {cargoVacio && (
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          Metros cubicos en vacio ($600 / m3)
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={cargoVacioM3}
+                          onChange={(e) => setCargoVacioM3(e.target.value)}
+                          placeholder="1"
+                          disabled={formLocked}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-[var(--brand)] transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </article>
             </div>
 
-            <aside className="lg:col-span-2">
+            <aside className="quote-print-area lg:col-span-2">
               <article className={`sticky top-4 ${cardClass}`}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <ClipboardList className="h-4 w-4 text-orange-600" />
+                  <Banknote className="h-4 w-4 text-[var(--brand)]" />
                   Paso 5 - Cierre y desglose
                 </h3>
                 <div className="mb-3 rounded-xl bg-slate-50 p-3">
                   <p className="text-xs text-slate-500">Resumen de ticket</p>
                   <p className="text-sm font-semibold text-slate-700">
-                    {priceModel.baseM3} m3 x {money(priceModel.unitPrice)} / m3
+                    {priceModel.baseM3 > 0
+                      ? `${priceModel.baseM3} m3 x ${money(priceModel.unitPrice)} / m3`
+                      : "Ej. 24 m3 x precio / m3"}
                   </p>
                 </div>
 
@@ -696,32 +1092,55 @@ export default function Page() {
                     <span>Concreto base</span>
                     <span className="font-semibold">{money(priceModel.concreteSubtotal)}</span>
                   </li>
-                  <li className="flex justify-between">
-                    <span>Aditivo</span>
-                    <span className="font-semibold">{money(priceModel.additiveSubtotal)}</span>
-                  </li>
+                  {priceModel.ageSubtotal > 0 && (
+                    <li className="flex justify-between">
+                      <span>
+                        {edad} ({money(priceModel.ageRate)} / m3)
+                      </span>
+                      <span className="font-semibold">{money(priceModel.ageSubtotal)}</span>
+                    </li>
+                  )}
+                  {priceModel.additiveSubtotal > 0 && (
+                    <li className="flex justify-between">
+                      <span>
+                        {aditivo} ({money(priceModel.additiveRate)} / m3)
+                      </span>
+                      <span className="font-semibold">{money(priceModel.additiveSubtotal)}</span>
+                    </li>
+                  )}
                   <li className="flex justify-between">
                     <span>Servicios extra</span>
                     <span className="font-semibold">{money(priceModel.extrasSubtotal)}</span>
                   </li>
+                  {priceModel.vacioSubtotal > 0 && (
+                    <li className="flex justify-between">
+                      <span>Cargo por vacio ({priceModel.vacioM3} m3)</span>
+                      <span className="font-semibold">{money(priceModel.vacioSubtotal)}</span>
+                    </li>
+                  )}
+                  {priceModel.distanciaSubtotal > 0 && (
+                    <li className="flex justify-between">
+                      <span>Cargo por distancia</span>
+                      <span className="font-semibold">{money(priceModel.distanciaSubtotal)}</span>
+                    </li>
+                  )}
                   <li className="flex justify-between border-t border-slate-200 pt-2">
                     <span>Subtotal</span>
                     <span className="font-semibold">{money(priceModel.subtotal)}</span>
                   </li>
                 </ul>
 
-                <label className="mt-4 block">
-                  <span className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
-                    <Percent className="h-4 w-4 text-orange-600" />
-                    Descuento Manual (%)
-                  </span>
+                <label className="no-print mt-4 block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Descuento Manual (%)</span>
                   <input
                     type="number"
                     min={0}
                     max={30}
                     value={discountPercent}
-                    onChange={(e) => setDiscountPercent(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-orange-500 transition focus:ring-2"
+                    onChange={(e) => setDiscountPercent(e.target.value)}
+                    placeholder="0"
+                    disabled={formLocked}
+                    className={`${inputCotizadorClass} px-3 py-2.5 text-sm`}
                   />
                 </label>
 
@@ -740,33 +1159,34 @@ export default function Page() {
                   </li>
                 </ul>
 
-                <div className="mt-4 grid gap-2">
-                  <button
-                    onClick={handleSaveQuote}
-                    disabled={isSavingQuote}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <ClipboardList className="h-4 w-4" />
-                    {isSavingQuote ? "Guardando..." : "Guardar cotizacion"}
-                  </button>
-                  {saveError && (
-                    <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>
+                <div className="no-print mt-4 grid grid-cols-2 gap-2">
+                  {!emittedQuote && (
+                    <button
+                      onClick={handleEmitQuote}
+                      disabled={isSavingQuote}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <FilePlus className="h-4 w-4" />
+                      {isSavingQuote ? "Emitiendo..." : "Emitir Cotizacion"}
+                    </button>
                   )}
                   <button
-                    onClick={() => setActionModal("pdf")}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Generar Vista Previa PDF
-                  </button>
-                  <button
-                    onClick={() => setActionModal("whatsapp")}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-600"
+                    onClick={handleWhatsApp}
+                    disabled={isSavingQuote}
+                    className={`flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 ${emittedQuote ? "col-span-2" : ""}`}
                   >
                     <Send className="h-4 w-4" />
-                    Enviar por WhatsApp
+                    {isSavingQuote ? "Procesando..." : "Enviar por WhatsApp"}
                   </button>
                 </div>
+                {emittedQuote && (
+                  <p className="no-print mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    Cotizacion {emittedQuote.folio_institucional} registrada. Precios congelados.
+                  </p>
+                )}
+                {saveError && (
+                  <p className="no-print mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>
+                )}
               </article>
             </aside>
           </div>
@@ -779,16 +1199,11 @@ export default function Page() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-3">
-                  <Image
-                    src="/Logo-CN-Color.png"
-                    alt="Concretos Narvaez"
-                    width={120}
-                    height={42}
-                    className="h-9 w-auto object-contain"
-                  />
+                  <HeaderLogo tenant={tenant} />
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
                     <p className="text-sm font-semibold text-slate-800">{vendedorNombre}</p>
+                    <p className="text-xs font-semibold text-[var(--brand)]">{tenant.name}</p>
                   </div>
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">Seguimiento de cotizaciones</h2>
@@ -815,35 +1230,51 @@ export default function Page() {
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
             <MetricCard
               title="Mis cotizaciones"
-              value={`${vendorDemoQuotes.length} registradas`}
-              icon={<ListChecks className="h-5 w-5 text-orange-600" />}
+              value={`${seguimientoQuotes.length} registradas`}
+              icon={<ListChecks className="h-5 w-5 text-[var(--brand)]" />}
             />
             <MetricCard
               title="Pendientes"
-              value={`${vendorDemoQuotes.filter((quote) => quote.status === "Pendiente").length}`}
-              icon={<ClipboardList className="h-5 w-5 text-orange-600" />}
+              value={`${seguimientoQuotes.filter((quote) => quote.status === "Pendiente").length}`}
+              icon={<ClipboardList className="h-5 w-5 text-[var(--brand)]" />}
             />
             <MetricCard
               title="Cerradas"
-              value={`${vendorDemoQuotes.filter((quote) => quote.status === "Cerrada").length}`}
-              icon={<CheckCircle2 className="h-5 w-5 text-orange-600" />}
+              value={`${seguimientoQuotes.filter((quote) => quote.status === "Cerrada").length}`}
+              icon={<CheckCircle2 className="h-5 w-5 text-[var(--brand)]" />}
             />
           </div>
 
-          <article className={cardClass}>
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-              <ListChecks className="h-4 w-4 text-orange-600" />
-              Mis cotizaciones
-            </h3>
-            <QuotesTable
-              quotes={vendorDemoQuotes}
-              loading={false}
-              showVendor={false}
-              statusUpdatingId={statusUpdatingId}
-              onStatusChange={handleUpdateDemoQuoteStatus}
-              statusBadge={statusBadge}
-              money={money}
-            />
+          <article className={`${cardClass} overflow-hidden`}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
+                <ListChecks className="h-4 w-4 text-[var(--brand)]" />
+                Mis cotizaciones
+              </h3>
+              {activeSeguimientoTab && (
+                <p className="text-xs font-medium text-slate-500">
+                  {seguimientoQuotesByDay.length} en {activeSeguimientoTab.label.toLowerCase()}
+                </p>
+              )}
+            </div>
+
+            <SeguimientoFolderTabs
+              tabs={seguimientoDayTabs}
+              activeKey={seguimientoDayKey}
+              counts={seguimientoDayCounts}
+              onSelect={setSeguimientoDayKey}
+            >
+              <QuotesTable
+                quotes={seguimientoQuotesByDay}
+                loading={seguimientoLoading}
+                showVendor={false}
+                statusUpdatingId={statusUpdatingId}
+                onStatusChange={handleUpdateSeguimientoQuoteStatus}
+                statusBadge={statusBadge}
+                money={money}
+                emptyMessage={`No hay cotizaciones registradas para ${activeSeguimientoTab?.label?.toLowerCase() ?? "este dia"}.`}
+              />
+            </SeguimientoFolderTabs>
           </article>
         </section>
       )}
@@ -854,13 +1285,7 @@ export default function Page() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-3">
-                  <Image
-                    src="/Logo-CN-Color.png"
-                    alt="Concretos Narvaez"
-                    width={120}
-                    height={42}
-                    className="h-9 w-auto object-contain"
-                  />
+                  <HeaderLogo tenant={tenant} />
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Dashboard de gerencia</p>
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">Administrador</h2>
@@ -882,17 +1307,17 @@ export default function Page() {
             <MetricCard
               title="Volumen Total Cotizado"
               value={formatVolume(MOCK_DASHBOARD_METRICS.totalVolume)}
-              icon={<Gauge className="h-5 w-5 text-orange-600" />}
+              icon={<Gauge className="h-5 w-5 text-[var(--brand)]" />}
             />
             <MetricCard
               title="Monto Total Cotizado"
               value={money(MOCK_DASHBOARD_METRICS.totalAmount)}
-              icon={<BarChart3 className="h-5 w-5 text-orange-600" />}
+              icon={<BarChart3 className="h-5 w-5 text-[var(--brand)]" />}
             />
             <MetricCard
               title="Cotizaciones del Mes"
               value={`${MOCK_DASHBOARD_METRICS.sentCount} enviadas / ${MOCK_DASHBOARD_METRICS.closedCount} cerradas`}
-              icon={<Phone className="h-5 w-5 text-orange-600" />}
+              icon={<Phone className="h-5 w-5 text-[var(--brand)]" />}
             />
           </div>
 
@@ -922,30 +1347,92 @@ export default function Page() {
         </section>
       )}
 
-      {actionModal && (
+      {documentActionsOpen && emittedQuote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow-xl ring-1 ring-slate-200">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-orange-200 text-orange-700">
-              {actionModal === "pdf" ? <FileText className="h-6 w-6" /> : <Send className="h-6 w-6" />}
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl ring-1 ring-slate-200">
+            <div className="mb-4 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <h4 className="text-lg font-bold text-slate-900">Cotizacion emitida</h4>
+              <p className="mt-1 text-sm text-slate-600">
+                Folio {emittedQuote.folio_institucional} registrado. Total: {money(emittedQuote.total)}
+              </p>
             </div>
-            <h4 className="text-lg font-bold text-slate-900">
-              {actionModal === "pdf" ? "Vista previa PDF generada" : "Cotizacion enviada por WhatsApp"}
-            </h4>
-            <p className="mt-1 text-sm text-slate-600">
-              {actionModal === "pdf"
-                ? "La simulacion del PDF se preparo correctamente para revision."
-                : "El cliente recibio la propuesta en su chat de manera inmediata."}
-            </p>
-            <button
-              onClick={() => setActionModal(null)}
-              className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
-            >
-              Cerrar
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handleDownloadPdf}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <FileText className="h-4 w-4" />
+                Descargar PDF
+              </button>
+              <button
+                onClick={handlePrintEmitted}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir Ahora
+              </button>
+              <button
+                onClick={() => setDocumentActionsOpen(false)}
+                className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
     </main>
+  );
+}
+
+function SeguimientoFolderTabs({ tabs, activeKey, counts, onSelect, children }) {
+  return (
+    <div className="relative">
+      <div
+        className="flex gap-1.5 overflow-x-auto pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+        aria-label="Cotizaciones por dia"
+      >
+        {tabs.map((tab) => {
+          const active = tab.key === activeKey;
+          const count = counts[tab.key] ?? 0;
+
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onSelect(tab.key)}
+              className={`group relative min-w-[5.75rem] shrink-0 rounded-t-xl border px-2.5 pb-2 pt-2 text-left transition-all duration-200 sm:min-w-[6.5rem] sm:px-3 ${
+                active
+                  ? "z-10 -mb-px border-[var(--brand)] border-b-white bg-white shadow-[0_-4px_18px_rgba(15,23,42,0.08)]"
+                  : "border-slate-200/90 bg-gradient-to-b from-slate-50 to-slate-100/80 hover:border-slate-300 hover:from-white hover:to-slate-50 hover:shadow-sm"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-1.5">
+                <p className={`text-xs font-bold leading-tight ${active ? "text-slate-900" : "text-slate-600"}`}>
+                  {tab.label}
+                </p>
+                <span className="shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold leading-none text-orange-700 ring-1 ring-orange-200/80">
+                  {count}
+                </span>
+              </div>
+              {active && (
+                <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-[var(--brand)]" aria-hidden="true" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="rounded-b-2xl rounded-tr-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/40 p-3 sm:p-4">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -957,13 +1444,14 @@ function QuotesTable({
   onStatusChange,
   statusBadge,
   money,
+  emptyMessage = "Aun no hay cotizaciones guardadas.",
 }) {
   if (loading) {
     return <p className="py-8 text-center text-sm text-slate-500">Cargando cotizaciones...</p>;
   }
 
   if (!quotes.length) {
-    return <p className="py-8 text-center text-sm text-slate-500">Aun no hay cotizaciones guardadas.</p>;
+    return <p className="py-8 text-center text-sm text-slate-500">{emptyMessage}</p>;
   }
 
   return (
@@ -994,7 +1482,7 @@ function QuotesTable({
                   value={quote.status}
                   disabled={statusUpdatingId === quote.id}
                   onChange={(event) => onStatusChange(quote.id, event.target.value)}
-                  className={`rounded-full border px-2 py-1 text-xs font-semibold outline-none ring-orange-500 transition focus:ring-2 disabled:opacity-60 ${statusBadge(quote.status)}`}
+                  className={`rounded-full border px-2 py-1 text-xs font-semibold outline-none ring-[var(--brand)] transition focus:ring-2 disabled:opacity-60 ${statusBadge(quote.status)}`}
                 >
                   <option value="Pendiente">Pendiente</option>
                   <option value="Cerrada">Cerrada</option>
@@ -1013,6 +1501,7 @@ function SelectField({
   value,
   onChange,
   options,
+  disabled = false,
 }) {
   return (
     <label className="block">
@@ -1020,7 +1509,8 @@ function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-orange-500 transition focus:ring-2"
+        disabled={disabled}
+        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-[var(--brand)] transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -1036,24 +1526,55 @@ function CheckOption({
   label,
   checked,
   onChange,
+  disabled = false,
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <label className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 ${disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+        disabled={disabled}
+        className="h-4 w-4 rounded border-slate-300 text-[var(--brand)] focus:ring-[var(--brand)] disabled:cursor-not-allowed"
       />
       <span className="text-sm text-slate-700">{label}</span>
     </label>
   );
 }
 
+function HeaderLogo({ tenant }) {
+  if (tenant.logo) {
+    return (
+      <Image
+        src={tenant.logo}
+        alt={tenant.name}
+        width={120}
+        height={42}
+        className="h-9 w-auto rounded object-contain"
+      />
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {tenant.logos.map((src) => (
+        <Image
+          key={src}
+          src={src}
+          alt={tenant.name}
+          width={90}
+          height={36}
+          className="h-8 w-auto rounded object-contain"
+        />
+      ))}
+    </div>
+  );
+}
+
 function MetricCard({ title, value, icon }) {
   return (
     <article className={cardClass}>
-      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-orange-200">{icon}</div>
+      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-soft)]">{icon}</div>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
       <p className="mt-1 text-lg font-bold text-slate-900">{value}</p>
     </article>

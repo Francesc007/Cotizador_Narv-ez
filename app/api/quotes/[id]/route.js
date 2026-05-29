@@ -1,6 +1,18 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { jsonResponse } from "@/lib/http";
-import { getQuoteById, updateQuoteStatus } from "@/lib/quotes/store";
+import {
+  getCotizacionById,
+  getPerfilByCorreo,
+  mapCotizacionForSeguimiento,
+  updateCotizacionEstatus,
+} from "@/lib/supabase/cotizaciones";
+import { COTIZACIONES, ESTATUS } from "@/lib/supabase/schema";
+
+const ALLOWED_STATUSES = new Set([
+  ESTATUS.PENDIENTE,
+  ESTATUS.ENVIADA,
+  ESTATUS.CERRADA,
+]);
 
 export async function PATCH(request, { params }) {
   const user = await getSessionUser();
@@ -9,28 +21,35 @@ export async function PATCH(request, { params }) {
   }
 
   const { id } = await params;
-  const quote = await getQuoteById(id);
-
-  if (!quote) {
-    return jsonResponse({ error: "Cotizacion no encontrada." }, 404);
-  }
-
-  if (user.role !== "admin" && quote.vendedorEmail !== user.email) {
-    return jsonResponse({ error: "No autorizado." }, 403);
-  }
 
   try {
+    const cotizacion = await getCotizacionById(id);
+    if (!cotizacion) {
+      return jsonResponse({ error: "Cotizacion no encontrada." }, 404);
+    }
+
+    const perfil = await getPerfilByCorreo(user.email);
+    const isOwner = perfil?.id && cotizacion[COTIZACIONES.VENDEDOR_ID] === perfil.id;
+    const isAdmin = user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return jsonResponse({ error: "No autorizado." }, 403);
+    }
+
     const body = await request.json();
     const status = typeof body.status === "string" ? body.status.trim() : "";
 
-    if (status !== "Pendiente" && status !== "Cerrada") {
+    if (!ALLOWED_STATUSES.has(status)) {
       return jsonResponse({ error: "Estatus invalido." }, 400);
     }
 
-    const updated = await updateQuoteStatus(id, status);
-    return jsonResponse({ quote: updated });
+    const updated = await updateCotizacionEstatus(id, status);
+    return jsonResponse({ quote: mapCotizacionForSeguimiento(updated) });
   } catch (error) {
     console.error("Update quote error:", error);
-    return jsonResponse({ error: "No fue posible actualizar la cotizacion." }, 500);
+    return jsonResponse(
+      { error: error.message || "No fue posible actualizar la cotizacion." },
+      500
+    );
   }
 }

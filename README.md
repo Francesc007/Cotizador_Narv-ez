@@ -73,7 +73,7 @@ app/
   api/auth/     # login, logout, session
   page.js       # UI principal
 lib/auth/       # sesion, usuarios, passwords
-middleware.js   # cabeceras de seguridad
+proxy.js          # cabeceras de seguridad y contexto tenant
 public/         # assets estaticos
 scripts/        # utilidades
 ```

@@ -12,15 +12,130 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ----------------------------------------------------------------
+   Temas multi-tenant (cambio de piel por empresa).
+   La clase se aplica al contenedor raiz y las variables --brand-*
+   cascadean a todos los hijos que usan bg-[var(--brand)], etc.
+-----------------------------------------------------------------*/
+.theme-neutral {
+  --brand: #1e293b;          /* slate-800: corporativo neutral */
+  --brand-strong: #0f172a;   /* slate-900 */
+  --brand-soft: #e2e8f0;     /* slate-200 */
+  --brand-contrast: #334155; /* slate-700 */
+}
+
+.theme-narvaez {
+  --brand: #ea580c;          /* orange-600 */
+  --brand-strong: #c2410c;   /* orange-700 */
+  --brand-soft: #fed7aa;     /* orange-200 */
+  --brand-contrast: #9a3412; /* orange-800 */
+}
+
+.theme-tepexi {
+  --brand: #1d4ed8;          /* blue-700: primario azul */
+  --brand-strong: #1e3a8a;   /* blue-900 */
+  --brand-soft: #dbeafe;     /* blue-100 */
+  --brand-contrast: #b91c1c; /* red-700: acento rojo */
+}
+
+.theme-narvaez .input-cotizador {
+  accent-color: #ea580c;
+}
+
+.theme-narvaez .input-cotizador:focus {
+  border-color: #fb923c;
+  box-shadow: 0 0 0 2px rgba(253, 186, 116, 0.55);
+}
+
+.theme-narvaez .volume-field-wrap {
+  border-color: #fed7aa;
+  background-color: rgba(255, 247, 237, 0.85);
+}
+
+/* Brillo que recorre el boton de izquierda a derecha (efecto wow) */
+@keyframes shine-sweep {
+  0% {
+    transform: translateX(-160%) skewX(-20deg);
+  }
+  55%,
+  100% {
+    transform: translateX(320%) skewX(-20deg);
+  }
+}
+
+.shine-sweep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  width: 35%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-20deg);
+  animation: shine-sweep 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shine-sweep::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Contorno con brillo suave (slate-800) en el cuadro de logos del login */
+.logos-frame-glow {
+  border: 1px solid rgba(30, 41, 59, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(30, 41, 59, 0.08),
+    0 0 18px rgba(30, 41, 59, 0.14),
+    0 0 36px rgba(30, 41, 59, 0.07);
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  /* Solo aplica al cotizador (imprimir desde la pantalla principal). */
+  body:has(.quote-print-area) * {
+    visibility: hidden;
+  }
+
+  body:has(.quote-print-area) .quote-print-area,
+  body:has(.quote-print-area) .quote-print-area * {
+    visibility: visible;
+  }
+
+  body:has(.quote-print-area) .quote-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  body:has(.quote-print-area) .quote-print-area .sticky {
+    position: static;
+  }
+
+  .quote-pdf-document {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
 }
