@@ -69,7 +69,7 @@ Documento de referencia para cambios futuros. **Nombres canónicos** de tablas y
 | `descuento_porcentaje` | NUMERIC | `discountPercent` |
 | `iva` | NUMERIC | `priceModel.iva` |
 | `total` | NUMERIC | `priceModel.total` |
-| `estatus` | TEXT | Seguimiento / Dashboard: `'Pendiente'` \| `'Enviada'` \| `'Cerrada'` |
+| `estatus` | TEXT | Seguimiento / Dashboard: `'Pendiente'` \| `'Cerrada'` |
 | `creado_at` | TIMESTAMPTZ | Fecha en tablas |
 
 **Folio:** no enviar `folio_consecutivo` ni `folio_institucional` en INSERT; el trigger `trg_asignar_folio` los genera por `empresa_id` + `empresas.prefijo_folio`.

@@ -4,6 +4,7 @@ import {
   getPerfilByCorreo,
   insertCotizacion,
   listCotizacionesByVendedor,
+  listCotizacionesForAdmin,
 } from "@/lib/supabase/cotizaciones";
 import { COTIZACIONES } from "@/lib/supabase/schema";
 
@@ -26,6 +27,11 @@ export async function GET() {
   }
 
   try {
+    if (user.role === "admin") {
+      const quotes = await listCotizacionesForAdmin();
+      return jsonResponse({ quotes });
+    }
+
     const perfil = await getPerfilByCorreo(user.email);
     if (!perfil?.id) {
       return jsonResponse({ quotes: [] });

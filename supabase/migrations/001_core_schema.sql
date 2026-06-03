@@ -61,11 +61,11 @@ CREATE TABLE IF NOT EXISTS cotizaciones (
     descuento_porcentaje NUMERIC DEFAULT 0,
     iva NUMERIC NOT NULL,
     total NUMERIC NOT NULL,
-    estatus TEXT NOT NULL DEFAULT 'Pendiente',  -- 'Pendiente' | 'Enviada' | 'Cerrada'
+    estatus TEXT NOT NULL DEFAULT 'Pendiente',  -- 'Pendiente' | 'Cerrada'
     creado_at TIMESTAMPTZ NOT NULL DEFAULT TIMEZONE('utc'::text, NOW()),
 
     CONSTRAINT cotizaciones_estatus_check
-        CHECK (estatus IN ('Pendiente', 'Enviada', 'Cerrada')),
+        CHECK (estatus IN ('Pendiente', 'Cerrada')),
     CONSTRAINT cotizaciones_empresa_folio_consecutivo_unique
         UNIQUE (empresa_id, folio_consecutivo),
     CONSTRAINT cotizaciones_empresa_folio_institucional_unique

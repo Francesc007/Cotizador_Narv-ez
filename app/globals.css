@@ -38,10 +38,42 @@ body {
 }
 
 .theme-tepexi {
-  --brand: #1d4ed8;          /* blue-700: primario azul */
-  --brand-strong: #1e3a8a;   /* blue-900 */
-  --brand-soft: #dbeafe;     /* blue-100 */
+  --brand: #103a6b;          /* azul marino Tepexi (logo, ligeramente mas claro) */
+  --brand-strong: #0a2d57;   /* marino profundo */
+  --brand-soft: #dce8f5;     /* marino muy suave */
   --brand-contrast: #b91c1c; /* red-700: acento rojo */
+}
+
+.theme-narvaez .vendor-panel-name {
+  color: #ea580c;
+}
+
+.theme-tepexi .vendor-panel-name {
+  color: #dc2626;
+}
+
+.theme-neutral .vendor-panel-name {
+  color: #334155;
+}
+
+.status-select-accent option {
+  background-color: #fef2f2;
+  color: #b91c1c;
+}
+
+.status-select-narvaez option {
+  background-color: #fff7ed;
+  color: #ea580c;
+}
+
+.status-select-tepexi option {
+  background-color: #eef4fa;
+  color: #103a6b;
+}
+
+.status-select-cerrada option {
+  background-color: #ecfdf5;
+  color: #047857;
 }
 
 .theme-narvaez .input-cotizador {
@@ -92,6 +124,100 @@ body {
   .shine-sweep::after {
     animation: none;
     opacity: 0;
+  }
+}
+
+/* Tarjetas: al pasar el cursor, la tarjeta y sus elementos se iluminan */
+.app-card {
+  transition:
+    transform 0.3s ease-out,
+    box-shadow 0.3s ease-out,
+    ring-color 0.3s ease-out;
+}
+
+@media (hover: hover) {
+  .app-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 12px 28px -8px rgba(15, 23, 42, 0.12),
+      0 0 0 1px color-mix(in srgb, var(--brand) 22%, transparent),
+      0 0 28px color-mix(in srgb, var(--brand) 14%, transparent);
+  }
+
+  .app-card:hover svg {
+    transition: filter 0.25s ease;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--brand) 45%, transparent));
+  }
+
+  .app-card:hover :is(h2, h3, h4, label, span, p, td, th) {
+    transition: color 0.25s ease, text-shadow 0.25s ease;
+  }
+
+  .app-card:hover h3 {
+    color: var(--brand-contrast, #334155);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+
+  .app-card:hover :is(input:not(:disabled), select:not(:disabled), textarea:not(:disabled)) {
+    transition:
+      border-color 0.25s ease,
+      box-shadow 0.25s ease,
+      background-color 0.25s ease;
+    border-color: color-mix(in srgb, var(--brand) 35%, #e2e8f0);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 12%, transparent);
+  }
+
+  .app-card:hover :is(.rounded-lg, .rounded-xl).bg-slate-50 {
+    transition:
+      border-color 0.25s ease,
+      box-shadow 0.25s ease,
+      background-color 0.25s ease;
+    border-color: color-mix(in srgb, var(--brand) 28%, #e2e8f0);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--brand) 10%, transparent);
+    background-color: color-mix(in srgb, var(--brand-soft) 35%, #f8fafc);
+  }
+
+  .app-card:hover .bg-\[var\(--brand-soft\)\] {
+    box-shadow: 0 0 16px color-mix(in srgb, var(--brand) 22%, transparent);
+  }
+
+  .app-card:hover button:not(:disabled) {
+    transition: box-shadow 0.25s ease;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+
+  .app-card:hover table tbody tr {
+    transition: background-color 0.25s ease;
+    background-color: color-mix(in srgb, var(--brand-soft) 25%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-card,
+  .app-card:hover {
+    transform: none;
+    transition: box-shadow 0.2s ease-out;
+  }
+
+  .nav-view-dock button {
+    transform: none !important;
+    transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out, color 0.2s ease-out;
+  }
+}
+
+/* Paginacion del leaderboard: flechas a la izquierda, lejos del dock fijo */
+.leaderboard-pagination {
+  max-width: calc(100% - 0.5rem);
+}
+
+/* Cotizaciones recientes: altura alineada al grafico lateral (h-56) */
+.dashboard-recent-quotes-scroll {
+  max-height: 14rem;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-recent-quotes-scroll {
+    max-height: 14rem;
   }
 }
 

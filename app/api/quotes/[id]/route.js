@@ -8,11 +8,7 @@ import {
 } from "@/lib/supabase/cotizaciones";
 import { COTIZACIONES, ESTATUS } from "@/lib/supabase/schema";
 
-const ALLOWED_STATUSES = new Set([
-  ESTATUS.PENDIENTE,
-  ESTATUS.ENVIADA,
-  ESTATUS.CERRADA,
-]);
+const ALLOWED_STATUSES = new Set([ESTATUS.PENDIENTE, ESTATUS.CERRADA]);
 
 export async function PATCH(request, { params }) {
   const user = await getSessionUser();
@@ -30,9 +26,15 @@ export async function PATCH(request, { params }) {
 
     const perfil = await getPerfilByCorreo(user.email);
     const isOwner = perfil?.id && cotizacion[COTIZACIONES.VENDEDOR_ID] === perfil.id;
-    const isAdmin = user.role === "admin";
 
-    if (!isOwner && !isAdmin) {
+    if (user.role === "admin") {
+      return jsonResponse(
+        { error: "La direccion no puede cambiar el estatus. Solo el vendedor en Seguimiento." },
+        403
+      );
+    }
+
+    if (!isOwner) {
       return jsonResponse({ error: "No autorizado." }, 403);
     }
 

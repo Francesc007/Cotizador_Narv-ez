@@ -1,23 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
-  BarChart3,
   Banknote,
+  DollarSign,
   CalendarDays,
   CheckCircle2,
+  CircleDollarSign,
   ClipboardList,
   Eye,
   EyeOff,
   FileText,
   FilePlus,
+  ChevronLeft,
+  ChevronRight,
   Gauge,
   HardHat,
   ListChecks,
   LogIn,
   LogOut,
   MapPin,
+  PenLine,
   Phone,
   Printer,
   Send,
@@ -27,109 +31,83 @@ import {
   Users,
 } from "lucide-react";
 import { getTenant, NEUTRAL_TENANT } from "@/lib/tenants/themes";
+import { DASHBOARD_MOCK_QUOTES } from "@/lib/dashboard/mockQuotes";
+import {
+  DASHBOARD_MOCK_RECENT_QUOTES_LIMIT,
+  DASHBOARD_RECENT_QUOTES_PAGE_SIZE,
+  LEADERBOARD_PAGE_SIZE,
+  VENDOR_CHART_TOP_LIMIT,
+  buildLeaderboardRows,
+  filterQuotesByEmpresa,
+  filterRecentQuotes,
+  getPlantaBadgeClass,
+  getPlantaLabel,
+  paginateRows,
+  summarizeDashboardMetrics,
+} from "@/lib/dashboard/utils";
+import { EMPRESA_IDS, ESTATUS, normalizeCotizacionEstatus } from "@/lib/supabase/schema";
 
 const IVA = 0.16;
 
-const MOCK_DASHBOARD_METRICS = {
-  totalVolume: 1240,
-  totalAmount: 2480000,
-  sentCount: 45,
-  closedCount: 28,
-};
+const VENDOR_CHART_HEIGHTS = ["h-16", "h-20", "h-24", "h-28", "h-32", "h-36", "h-40"];
 
-const MOCK_VENDOR_CHART_BARS = [
-  {
-    label: "Vendedor 1",
-    height: "h-40",
-    value: "$940k",
+const VENDOR_CHART_PALETTES = {
+  [EMPRESA_IDS.NARVAEZ]: {
     front: "linear-gradient(180deg, #fb923c 0%, #ea580c 52%, #c2410c 100%)",
     side: "#9a3412",
     top: "#fdba74",
   },
-  {
-    label: "Vendedor 2",
-    height: "h-32",
-    value: "$780k",
+  [EMPRESA_IDS.TEPEXI]: {
+    front: "linear-gradient(180deg, #60a5fa 0%, #103a6b 52%, #0a2d57 100%)",
+    side: "#0a2d57",
+    top: "#93c5fd",
+  },
+  neutral: {
     front: "linear-gradient(180deg, #64748b 0%, #475569 52%, #334155 100%)",
     side: "#1e293b",
     top: "#94a3b8",
   },
-  {
-    label: "Vendedor 3",
-    height: "h-24",
-    value: "$560k",
-    front: "linear-gradient(180deg, #fbbf24 0%, #d97706 52%, #b45309 100%)",
-    side: "#92400e",
-    top: "#fde68a",
-  },
-];
-
-const MOCK_QUOTES = [
-  {
-    id: "demo-1",
-    folio: "V1-297",
-    fecha: "22/05/2026",
-    cliente: "Obra Alfa",
-    vendedorNombre: "Vendedor Demo",
-    vendedorEmail: "vendedor@concretos.com",
-    volumen: 24,
-    total: 182000,
-    status: "Cerrada",
-  },
-  {
-    id: "demo-2",
-    folio: "V1-298",
-    fecha: "23/05/2026",
-    cliente: "Consorcio Norte",
-    vendedorNombre: "Vendedor Demo",
-    vendedorEmail: "vendedor@concretos.com",
-    volumen: 12,
-    total: 95400,
-    status: "Pendiente",
-  },
-  {
-    id: "demo-3",
-    folio: "V1-299",
-    fecha: "24/05/2026",
-    cliente: "Residencial Delta",
-    vendedorNombre: "Vendedor 3",
-    vendedorEmail: "vendedor3@concretos.com",
-    volumen: 30,
-    total: 133200,
-    status: "Cerrada",
-  },
-  {
-    id: "demo-4",
-    folio: "V1-296",
-    fecha: "21/05/2026",
-    cliente: "Grupo Horizonte",
-    vendedorNombre: "Vendedor 2",
-    vendedorEmail: "vendedor2@concretos.com",
-    volumen: 18,
-    total: 168500,
-    status: "Pendiente",
-  },
-  {
-    id: "demo-5",
-    folio: "V1-295",
-    fecha: "20/05/2026",
-    cliente: "Constructora Atlas",
-    vendedorNombre: "Vendedor Demo",
-    vendedorEmail: "vendedor@concretos.com",
-    volumen: 20,
-    total: 145600,
-    status: "Cerrada",
-  },
-];
+};
 
 const cardClass =
-  "rounded-2xl bg-white p-4 shadow ring-1 ring-slate-200 border-l-4 border-[var(--brand)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg";
+  "app-card group rounded-2xl bg-white p-4 shadow ring-1 ring-slate-200 border-l-4 border-[var(--brand)]";
+
+const sectionIconClass = "h-5 w-5 shrink-0 text-[var(--brand)]";
+
+const vendorPanelNameClass = "vendor-panel-name text-[20px] font-semibold leading-snug";
+const vendorPanelTitleClass =
+  "mt-1 text-sm font-bold uppercase tracking-wide text-slate-900";
+
+const seguimientoAccentBadgeClass =
+  "rounded-full border border-red-300 bg-red-100 text-xs font-semibold text-red-700";
+
+const statusBadgeBaseClass =
+  "status-select-accent rounded-full border px-2 py-1 text-xs font-semibold outline-none transition focus:ring-2 disabled:opacity-60";
+
+const cerradaStatusBadgeClass =
+  "status-select-cerrada border-emerald-600 bg-emerald-600 text-white focus:ring-emerald-300/60";
+
+function getCerradaStatusBadgeClass() {
+  return `${statusBadgeBaseClass} ${cerradaStatusBadgeClass}`;
+}
+
+const dashboardPlantaFilterButtonClass =
+  "rounded-full border-2 px-3 py-1.5 text-xs font-semibold shadow-sm transition-all duration-150 active:translate-y-0.5 active:scale-[0.97]";
 
 const logoutButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner";
 
 const newQuoteButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-150 hover:bg-[var(--brand-strong)] active:translate-y-0.5 active:scale-[0.98] active:bg-[var(--brand-strong)] active:shadow-md";
+
+const navDockButtonClass =
+  "rounded-full px-3.5 py-2 text-xs font-semibold transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md active:translate-y-0.5 active:scale-[0.94] active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35";
+
+function navDockButtonVariantClass(isActive) {
+  return isActive
+    ? "bg-[var(--brand)] text-white shadow-inner translate-y-0.5 scale-[0.96] ring-1 ring-black/10"
+    : "bg-slate-100 text-slate-600 shadow-sm hover:bg-slate-200 active:bg-slate-300";
+}
 
 const inputCotizadorClass =
   "input-cotizador w-full rounded-xl border border-slate-200 bg-slate-50 outline-none transition focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70";
@@ -225,6 +203,40 @@ function todayDayKey() {
   return formatDayKey(today);
 }
 
+/** Ultimos 7 dias (misma ventana que las pestañas de Seguimiento). */
+function isQuoteInCurrentWeek(creadoAt) {
+  if (!creadoAt) return false;
+
+  const quoteDay = new Date(creadoAt);
+  quoteDay.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - 6);
+
+  return quoteDay >= weekStart && quoteDay <= today;
+}
+
+function dashboardPlantaFilterButtonVariantClass(variant, active) {
+  if (variant === "tepexi") {
+    return active
+      ? "border-[#103a6b] bg-[#103a6b] text-white"
+      : "border-[#103a6b] bg-[#103a6b]/10 text-[#103a6b] hover:bg-[#103a6b]/15";
+  }
+
+  if (variant === "narvaez") {
+    return active
+      ? "border-[#ea580c] bg-[#ea580c] text-white"
+      : "border-[#ea580c] bg-[#ea580c]/10 text-[#ea580c] hover:bg-[#ea580c]/15";
+  }
+
+  return active
+    ? "border-slate-800 bg-slate-800 text-white"
+    : "border-slate-800 bg-slate-800/10 text-slate-800 hover:bg-slate-800/15";
+}
+
 function buildLast7DayTabs() {
   const tabs = [];
   const today = new Date();
@@ -282,6 +294,89 @@ function normalizeWhatsAppPhone(value) {
   return value.replace(/\D/g, "").slice(0, 10);
 }
 
+function formatContactPhone(value) {
+  const digits = normalizeWhatsAppPhone(String(value ?? ""));
+  if (!digits) return "—";
+  if (digits.length !== 10) return digits;
+  return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+}
+
+function summarizeCotizaciones(quotes) {
+  return {
+    total: quotes.length,
+    cerradas: quotes.filter((quote) => normalizeCotizacionEstatus(quote.status) === ESTATUS.CERRADA).length,
+    pendientes: quotes.filter((quote) => normalizeCotizacionEstatus(quote.status) === ESTATUS.PENDIENTE).length,
+  };
+}
+
+function formatCompactMoney(value) {
+  const amount = Number(value) || 0;
+
+  if (amount >= 1_000_000) {
+    const millions = amount / 1_000_000;
+    return `$${millions >= 10 ? Math.round(millions) : millions.toFixed(1).replace(/\.0$/, "")}M`;
+  }
+
+  if (amount >= 1_000) {
+    return `$${Math.round(amount / 1_000)}k`;
+  }
+
+  return money(amount);
+}
+
+function shortenVendorLabel(name) {
+  const parts = String(name || "Vendedor").trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return "Vendedor";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].length > 12 ? `${parts[0].slice(0, 11)}…` : parts[0];
+  }
+
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+}
+
+function buildVendorChartBars(quotes) {
+  const totalsByVendor = new Map();
+
+  for (const quote of quotes) {
+    const vendorKey = `${quote.vendedorNombre ?? "—"}|${quote.empresaId ?? "neutral"}`;
+    const current = totalsByVendor.get(vendorKey) ?? {
+      label: quote.vendedorNombre || "Sin vendedor",
+      empresaId: quote.empresaId,
+      total: 0,
+      count: 0,
+    };
+
+    current.total += Number(quote.total) || 0;
+    current.count += 1;
+    totalsByVendor.set(vendorKey, current);
+  }
+
+  const vendors = [...totalsByVendor.values()].sort((a, b) => b.total - a.total);
+  const maxTotal = Math.max(...vendors.map((vendor) => vendor.total), 1);
+  const maxHeightIndex = VENDOR_CHART_HEIGHTS.length - 1;
+
+  return vendors.map((vendor) => {
+    const ratio = vendor.total / maxTotal;
+    const heightIndex =
+      vendor.total <= 0 ? 0 : Math.max(1, Math.round(ratio * maxHeightIndex));
+    const palette =
+      VENDOR_CHART_PALETTES[vendor.empresaId] ?? VENDOR_CHART_PALETTES.neutral;
+
+    return {
+      barId: `${vendor.label}-${vendor.empresaId}`,
+      label: shortenVendorLabel(vendor.label),
+      fullLabel: `${vendor.label} · ${vendor.count} cotizacion${vendor.count === 1 ? "" : "es"}`,
+      height: VENDOR_CHART_HEIGHTS[heightIndex],
+      value: formatCompactMoney(vendor.total),
+      ...palette,
+    };
+  });
+}
+
 function getQuotePdfUrl(folio) {
   if (typeof window !== "undefined") {
     return `${window.location.origin}/pdf/${encodeURIComponent(folio)}`;
@@ -333,7 +428,11 @@ export default function Page() {
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [displayFolio, setDisplayFolio] = useState("—");
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
-  const [demoQuotes, setDemoQuotes] = useState(MOCK_QUOTES);
+  const [dashboardQuotes, setDashboardQuotes] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardPlantaFilter, setDashboardPlantaFilter] = useState("general");
+  const [leaderboardPage, setLeaderboardPage] = useState(1);
+  const [dashboardRecentQuotesPage, setDashboardRecentQuotesPage] = useState(1);
   const [seguimientoQuotes, setSeguimientoQuotes] = useState([]);
   const [seguimientoLoading, setSeguimientoLoading] = useState(false);
   const [seguimientoDayKey, setSeguimientoDayKey] = useState(todayDayKey);
@@ -371,6 +470,90 @@ export default function Page() {
     }
   };
 
+  const loadDashboardQuotes = async () => {
+    setDashboardLoading(true);
+    try {
+      if (process.env.NEXT_PUBLIC_DASHBOARD_MOCK === "false") {
+        const response = await fetch("/api/quotes");
+        if (!response.ok) {
+          setDashboardQuotes([]);
+          return;
+        }
+
+        const data = await response.json();
+        setDashboardQuotes(Array.isArray(data.quotes) ? data.quotes : []);
+        return;
+      }
+
+      setDashboardQuotes(DASHBOARD_MOCK_QUOTES);
+    } catch {
+      setDashboardQuotes(DASHBOARD_MOCK_QUOTES);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  const handleDashboardPlantaFilter = (filter) => {
+    setDashboardPlantaFilter(filter);
+    setLeaderboardPage(1);
+    setDashboardRecentQuotesPage(1);
+  };
+
+  const dashboardFilteredQuotes = useMemo(
+    () => filterQuotesByEmpresa(dashboardQuotes, dashboardPlantaFilter),
+    [dashboardQuotes, dashboardPlantaFilter]
+  );
+
+  const vendorChartBars = useMemo(
+    () => buildVendorChartBars(dashboardFilteredQuotes).slice(0, VENDOR_CHART_TOP_LIMIT),
+    [dashboardFilteredQuotes]
+  );
+
+  const dashboardMetrics = useMemo(
+    () => summarizeDashboardMetrics(dashboardFilteredQuotes, { weekOnly: true }),
+    [dashboardFilteredQuotes]
+  );
+
+  const dashboardTotals = useMemo(
+    () => summarizeDashboardMetrics(dashboardFilteredQuotes),
+    [dashboardFilteredQuotes]
+  );
+
+  const leaderboardRows = useMemo(
+    () => buildLeaderboardRows(dashboardFilteredQuotes),
+    [dashboardFilteredQuotes]
+  );
+
+  const leaderboardPagination = useMemo(
+    () => paginateRows(leaderboardRows, leaderboardPage, LEADERBOARD_PAGE_SIZE),
+    [leaderboardRows, leaderboardPage]
+  );
+
+  const dashboardRecentQuotes = useMemo(() => {
+    const pool = filterRecentQuotes(dashboardFilteredQuotes, { last24Hours: true });
+
+    if (process.env.NEXT_PUBLIC_DASHBOARD_MOCK === "false") {
+      return pool;
+    }
+
+    return pool.slice(0, DASHBOARD_MOCK_RECENT_QUOTES_LIMIT);
+  }, [dashboardFilteredQuotes]);
+
+  const dashboardRecentQuotesPagination = useMemo(
+    () =>
+      paginateRows(
+        dashboardRecentQuotes,
+        dashboardRecentQuotesPage,
+        DASHBOARD_RECENT_QUOTES_PAGE_SIZE
+      ),
+    [dashboardRecentQuotes, dashboardRecentQuotesPage]
+  );
+
+  const seguimientoSummary = useMemo(
+    () => summarizeCotizaciones(seguimientoQuotes),
+    [seguimientoQuotes]
+  );
+
   useEffect(() => {
     async function loadSession() {
       try {
@@ -393,6 +576,12 @@ export default function Page() {
 
     loadSession();
   }, []);
+
+  useEffect(() => {
+    if (view === "dashboard" && sessionUser?.role === "admin") {
+      loadDashboardQuotes();
+    }
+  }, [view, sessionUser?.role]);
 
   const priceModel = useMemo(() => {
     const parsedVolume = Number(volumen);
@@ -499,10 +688,17 @@ export default function Page() {
   const activeSeguimientoTab =
     seguimientoDayTabs.find((tab) => tab.key === seguimientoDayKey) ?? seguimientoDayTabs[0];
 
-  const statusBadge = (status) =>
-    status === "Cerrada"
-      ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-      : "bg-amber-100 text-amber-700 border-amber-300";
+  const statusBadge = (status) => {
+    const normalized = normalizeCotizacionEstatus(status);
+
+    if (normalized === ESTATUS.CERRADA) {
+      return getCerradaStatusBadgeClass();
+    }
+
+    return `${statusBadgeBaseClass} ring-[var(--brand)] ${seguimientoAccentBadgeClass} focus:ring-[var(--brand)]/35`;
+  };
+
+  const dashboardStatusBadge = useCallback((status) => getDashboardPastelStatusBadgeClass(status), []);
 
   const handleLogin = async (event) => {
     event?.preventDefault();
@@ -616,6 +812,7 @@ export default function Page() {
       setDisplayFolio(data.quote.folio_institucional);
       setEmittedQuote(quote);
       loadSeguimientoQuotes();
+      loadDashboardQuotes();
       return quote;
     } catch {
       setSaveError("No fue posible conectar con el servidor.");
@@ -678,14 +875,6 @@ export default function Page() {
     );
   };
 
-  const handleUpdateDemoQuoteStatus = (quoteId, status) => {
-    setStatusUpdatingId(quoteId);
-    setDemoQuotes((current) =>
-      current.map((quote) => (quote.id === quoteId ? { ...quote, status } : quote))
-    );
-    setStatusUpdatingId(null);
-  };
-
   const handleUpdateSeguimientoQuoteStatus = async (quoteId, status) => {
     setStatusUpdatingId(quoteId);
     try {
@@ -744,37 +933,39 @@ export default function Page() {
   }
 
   return (
-    <main className={`min-h-screen bg-slate-100 text-slate-900 ${themeClass}`}>
+    <main
+      className={`min-h-screen bg-slate-100 text-slate-900 ${themeClass} ${sessionUser ? "pb-28" : ""}`}
+    >
       {sessionUser && (
-        <div className="fixed bottom-3 right-3 z-50 flex gap-2 rounded-full bg-white/90 p-1 shadow-lg ring-1 ring-slate-200 backdrop-blur">
+        <div className="nav-view-dock fixed bottom-3 right-3 z-50 flex gap-1.5 rounded-full bg-white/90 p-1.5 shadow-lg ring-1 ring-slate-200 backdrop-blur">
           <button
+            type="button"
             onClick={() => setView("cotizador")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              view === "cotizador" ? "bg-[var(--brand)] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
+            className={`${navDockButtonClass} ${navDockButtonVariantClass(view === "cotizador")}`}
           >
             Cotizador
           </button>
           <button
+            type="button"
             onClick={() => {
               setSeguimientoDayKey(todayDayKey());
               setView("seguimiento");
               loadSeguimientoQuotes();
             }}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              view === "seguimiento" ? "bg-[var(--brand)] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
+            className={`${navDockButtonClass} ${navDockButtonVariantClass(view === "seguimiento")}`}
           >
             Seguimiento
           </button>
           {sessionUser.role === "admin" && (
             <button
-              onClick={() => setView("dashboard")}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                view === "dashboard" ? "bg-[var(--brand)] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
+              type="button"
+              onClick={() => {
+                setView("dashboard");
+                loadDashboardQuotes();
+              }}
+              className={`${navDockButtonClass} ${navDockButtonVariantClass(view === "dashboard")}`}
             >
-              Dashboard
+              Panel
             </button>
           )}
         </div>
@@ -784,29 +975,7 @@ export default function Page() {
         <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-8">
           <div className="rounded-2xl border-l-4 border-slate-800 bg-white p-6 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl">
             <div className="mb-7 text-center">
-              <div className="logos-frame-glow mx-auto mb-8 flex h-28 w-full items-stretch rounded-3xl bg-slate-50 px-2">
-                <div className="flex flex-1 items-center justify-center px-3">
-                  <Image
-                    src="/Logo-CN-Color.png"
-                    alt="Concretos Narváez"
-                    width={150}
-                    height={70}
-                    className="h-12 w-auto object-contain"
-                    priority
-                  />
-                </div>
-                <span className="my-4 w-0.5 self-stretch rounded-full bg-slate-300" aria-hidden="true" />
-                <div className="flex flex-1 items-center justify-center px-3">
-                  <Image
-                    src="/logo-tepexi.jpeg"
-                    alt="Concretos Tepexi"
-                    width={150}
-                    height={70}
-                    className="h-14 w-auto rounded object-contain"
-                    priority
-                  />
-                </div>
-              </div>
+              <DualBrandLogos size="login" className="mx-auto mb-8 w-full" priority />
               <h1 className="text-lg font-bold tracking-tight text-slate-900">
                 Ecosistema de Cotización Corporativo
               </h1>
@@ -871,20 +1040,19 @@ export default function Page() {
           <header className={`mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="mb-2 flex items-center gap-3">
-                  <HeaderLogo tenant={tenant} />
+                <div className="flex items-center gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-1" />
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className="text-sm font-semibold text-slate-800">{vendedorNombre}</p>
-                    <p className="text-xs font-semibold text-[var(--brand)]">{tenant.name}</p>
+                    <p className={vendorPanelNameClass}>{vendedorNombre}</p>
+                    <h2 className={vendorPanelTitleClass}>Cotizador de Concreto Premezclado</h2>
                   </div>
                 </div>
-                <h2 className="text-xl font-bold text-slate-900">Cotizador de Concreto Premezclado</h2>
               </div>
               <div className="flex flex-col gap-2 sm:items-end">
-                <button onClick={handleLogout} className={logoutButtonClass}>
-                  <LogOut className="h-4 w-4" />
-                  Cerrar sesion
+                <button onClick={resetQuoteForm} className={newQuoteButtonClass}>
+                  <FilePlus className="h-4 w-4" />
+                  + Nueva Cotizacion
                 </button>
                 <div className="grid grid-cols-2 gap-2 sm:w-[340px]">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -907,7 +1075,7 @@ export default function Page() {
             <div className="space-y-4 lg:col-span-3">
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <Users className="h-4 w-4 text-[var(--brand)]" />
+                  <Users className={sectionIconClass} />
                   Paso 1 - Datos
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -922,8 +1090,7 @@ export default function Page() {
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
-                      <Phone className="h-4 w-4 text-[var(--brand)]" />
+                    <span className="mb-1 block text-sm font-medium text-slate-700">
                       WhatsApp del Cliente (10 digitos)
                     </span>
                     <input
@@ -951,7 +1118,7 @@ export default function Page() {
 
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <MapPin className="h-4 w-4 text-[var(--brand)]" />
+                  <MapPin className={sectionIconClass} />
                   Paso 2 - Ubicacion
                 </h3>
                 <label className="block">
@@ -975,12 +1142,12 @@ export default function Page() {
 
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <HardHat className="h-4 w-4 text-[var(--brand)]" />
+                  <HardHat className={sectionIconClass} />
                   Paso 3 - Configuracion del concreto
                 </h3>
                 <label className="volume-field-wrap mb-4 block rounded-xl border-2 p-3">
                   <span className="mb-1 flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                    <Truck className="h-4 w-4 text-[var(--brand)]" />
+                    <Truck className={sectionIconClass} />
                     Volumen (m3)
                   </span>
                   <input
@@ -1004,7 +1171,7 @@ export default function Page() {
 
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <ListChecks className="h-4 w-4 text-[var(--brand)]" />
+                  <ListChecks className={sectionIconClass} />
                   Paso 4 - Servicios extra
                 </h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -1075,7 +1242,7 @@ export default function Page() {
             <aside className="quote-print-area lg:col-span-2">
               <article className={`sticky top-4 ${cardClass}`}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <Banknote className="h-4 w-4 text-[var(--brand)]" />
+                  <Banknote className={sectionIconClass} />
                   Paso 5 - Cierre y desglose
                 </h3>
                 <div className="mb-3 rounded-xl bg-slate-50 p-3">
@@ -1198,15 +1365,97 @@ export default function Page() {
           <header className={`mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="mb-2 flex items-center gap-3">
-                  <HeaderLogo tenant={tenant} />
+                <div className="flex items-center gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-1" />
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className="text-sm font-semibold text-slate-800">{vendedorNombre}</p>
-                    <p className="text-xs font-semibold text-[var(--brand)]">{tenant.name}</p>
+                    <p className={vendorPanelNameClass}>{vendedorNombre}</p>
+                    <h2 className={vendorPanelTitleClass}>Seguimiento de cotizaciones</h2>
                   </div>
                 </div>
-                <h2 className="text-xl font-bold text-slate-900">Seguimiento de cotizaciones</h2>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  onClick={() => {
+                    resetQuoteForm();
+                    setView("cotizador");
+                  }}
+                  className={newQuoteButtonClass}
+                >
+                  <FilePlus className="h-4 w-4" />
+                  + Nueva Cotizacion
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <MetricCard
+              title="Mis cotizaciones"
+              value={`${seguimientoQuotes.length} registradas`}
+              icon={<PenLine className="h-5 w-5 text-[var(--brand)]" />}
+            />
+            <MetricCard
+              title="Pendientes"
+              value={`${seguimientoSummary.pendientes}`}
+              icon={<ClipboardList className="h-5 w-5 text-[var(--brand)]" />}
+            />
+            <MetricCard
+              title="Cerradas"
+              value={`${seguimientoSummary.cerradas}`}
+              icon={<CircleDollarSign className="h-5 w-5 text-[var(--brand)]" />}
+            />
+          </div>
+
+          <article className={`${cardClass} overflow-hidden`}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
+                <ListChecks className={sectionIconClass} />
+                Mis cotizaciones
+              </h3>
+              {activeSeguimientoTab && (
+                <p className="text-xs font-medium text-slate-500">
+                  {seguimientoQuotesByDay.length} en {activeSeguimientoTab.label.toLowerCase()}
+                </p>
+              )}
+            </div>
+
+            <SeguimientoFolderTabs
+              tabs={seguimientoDayTabs}
+              activeKey={seguimientoDayKey}
+              counts={seguimientoDayCounts}
+              onSelect={setSeguimientoDayKey}
+            >
+              <QuotesTable
+                quotes={seguimientoQuotesByDay}
+                loading={seguimientoLoading}
+                showVendor={false}
+                showContact
+                statusUpdatingId={statusUpdatingId}
+                onStatusChange={handleUpdateSeguimientoQuoteStatus}
+                statusBadge={statusBadge}
+                money={money}
+                emptyMessage={`No hay cotizaciones registradas para ${activeSeguimientoTab?.label?.toLowerCase() ?? "este dia"}.`}
+              />
+            </SeguimientoFolderTabs>
+          </article>
+        </section>
+      )}
+
+      {view === "dashboard" && sessionUser?.role === "admin" && (
+        <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
+          <header className={`mb-4 ${cardClass}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-1" />
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                      Panel de gerencia
+                    </p>
+                    <h2 className={vendorPanelTitleClass}>Administrador</h2>
+                  </div>
+                </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button onClick={handleLogout} className={logoutButtonClass}>
@@ -1227,123 +1476,84 @@ export default function Page() {
             </div>
           </header>
 
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <MetricCard
-              title="Mis cotizaciones"
-              value={`${seguimientoQuotes.length} registradas`}
-              icon={<ListChecks className="h-5 w-5 text-[var(--brand)]" />}
-            />
-            <MetricCard
-              title="Pendientes"
-              value={`${seguimientoQuotes.filter((quote) => quote.status === "Pendiente").length}`}
-              icon={<ClipboardList className="h-5 w-5 text-[var(--brand)]" />}
-            />
-            <MetricCard
-              title="Cerradas"
-              value={`${seguimientoQuotes.filter((quote) => quote.status === "Cerrada").length}`}
-              icon={<CheckCircle2 className="h-5 w-5 text-[var(--brand)]" />}
-            />
-          </div>
-
-          <article className={`${cardClass} overflow-hidden`}>
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                <ListChecks className="h-4 w-4 text-[var(--brand)]" />
-                Mis cotizaciones
-              </h3>
-              {activeSeguimientoTab && (
-                <p className="text-xs font-medium text-slate-500">
-                  {seguimientoQuotesByDay.length} en {activeSeguimientoTab.label.toLowerCase()}
-                </p>
-              )}
-            </div>
-
-            <SeguimientoFolderTabs
-              tabs={seguimientoDayTabs}
-              activeKey={seguimientoDayKey}
-              counts={seguimientoDayCounts}
-              onSelect={setSeguimientoDayKey}
-            >
-              <QuotesTable
-                quotes={seguimientoQuotesByDay}
-                loading={seguimientoLoading}
-                showVendor={false}
-                statusUpdatingId={statusUpdatingId}
-                onStatusChange={handleUpdateSeguimientoQuoteStatus}
-                statusBadge={statusBadge}
-                money={money}
-                emptyMessage={`No hay cotizaciones registradas para ${activeSeguimientoTab?.label?.toLowerCase() ?? "este dia"}.`}
-              />
-            </SeguimientoFolderTabs>
-          </article>
-        </section>
-      )}
-
-      {view === "dashboard" && sessionUser?.role === "admin" && (
-        <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
-          <header className={`mb-4 ${cardClass}`}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="mb-2 flex items-center gap-3">
-                  <HeaderLogo tenant={tenant} />
-                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Dashboard de gerencia</p>
-                </div>
-                <h2 className="text-xl font-bold text-slate-900">Administrador</h2>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <button onClick={handleLogout} className={logoutButtonClass}>
-                  <LogOut className="h-4 w-4" />
-                  Cerrar sesion
-                </button>
-                <button onClick={() => setView("cotizador")} className={newQuoteButtonClass}>
-                  <FilePlus className="h-4 w-4" />
-                  + Nueva Cotizacion
-                </button>
-              </div>
-            </div>
-          </header>
+          <DashboardPlantaFilters
+            value={dashboardPlantaFilter}
+            onChange={handleDashboardPlantaFilter}
+            className="mb-4"
+          />
 
           <div className="grid gap-3 sm:grid-cols-3">
             <MetricCard
               title="Volumen Total Cotizado"
-              value={formatVolume(MOCK_DASHBOARD_METRICS.totalVolume)}
+              value={dashboardLoading ? "Cargando..." : formatVolume(dashboardTotals.totalVolume)}
               icon={<Gauge className="h-5 w-5 text-[var(--brand)]" />}
             />
             <MetricCard
               title="Monto Total Cotizado"
-              value={money(MOCK_DASHBOARD_METRICS.totalAmount)}
-              icon={<BarChart3 className="h-5 w-5 text-[var(--brand)]" />}
+              value={dashboardLoading ? "Cargando..." : money(dashboardTotals.totalAmount)}
+              icon={<DollarSign className="h-5 w-5 text-[var(--brand)]" />}
             />
             <MetricCard
-              title="Cotizaciones del Mes"
-              value={`${MOCK_DASHBOARD_METRICS.sentCount} enviadas / ${MOCK_DASHBOARD_METRICS.closedCount} cerradas`}
+              title="Cotizaciones de la Semana"
+              value={
+                dashboardLoading
+                  ? "Cargando..."
+                  : `${dashboardMetrics.pendingCount} pendientes / ${dashboardMetrics.closedCount} cerradas`
+              }
               icon={<Phone className="h-5 w-5 text-[var(--brand)]" />}
             />
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <article className={`${cardClass} lg:col-span-1`}>
-              <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-700">Rendimiento por vendedor</h3>
-              <div className="flex h-56 items-end justify-around gap-4 px-2 pb-2">
-                {MOCK_VENDOR_CHART_BARS.map((bar) => (
-                  <Bar key={bar.label} {...bar} />
-                ))}
-              </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-3 lg:items-stretch">
+            <article className={`${cardClass} flex flex-col lg:col-span-1 lg:min-h-[19rem]`}>
+              <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-700">
+                Top vendedores por monto
+              </h3>
+              <p className="mb-4 text-xs text-slate-500">
+                Maximo {VENDOR_CHART_TOP_LIMIT} barras · filtro{" "}
+                {dashboardPlantaFilter === "general"
+                  ? "General"
+                  : getPlantaLabel(dashboardPlantaFilter)}
+              </p>
+              {dashboardLoading ? (
+                <p className="flex h-60 items-center justify-center text-sm text-slate-500">
+                  Cargando grafica...
+                </p>
+              ) : vendorChartBars.length === 0 ? (
+                <p className="flex h-60 items-center justify-center px-4 text-center text-sm text-slate-500">
+                  No hay cotizaciones para mostrar con este filtro.
+                </p>
+              ) : (
+                <div className="vendor-top-chart flex h-60 items-end justify-center gap-3 overflow-x-auto px-2 pb-3 pt-7">
+                  {vendorChartBars.map(({ barId, ...bar }) => (
+                    <Bar key={barId} {...bar} />
+                  ))}
+                </div>
+              )}
             </article>
 
-            <article className={`${cardClass} lg:col-span-2`}>
-              <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-700">Cotizaciones recientes</h3>
-              <QuotesTable
-                quotes={demoQuotes}
-                loading={false}
-                showVendor
-                statusUpdatingId={statusUpdatingId}
-                onStatusChange={handleUpdateDemoQuoteStatus}
-                statusBadge={statusBadge}
-                money={money}
-              />
-            </article>
+            <DashboardRecentQuotesCard
+              quotes={dashboardRecentQuotesPagination.items}
+              page={dashboardRecentQuotesPagination.page}
+              totalPages={dashboardRecentQuotesPagination.totalPages}
+              totalRows={dashboardRecentQuotesPagination.totalRows}
+              onPageChange={setDashboardRecentQuotesPage}
+              loading={dashboardLoading}
+              statusBadge={dashboardStatusBadge}
+              money={money}
+              plantaFilter={dashboardPlantaFilter}
+            />
           </div>
+
+          <VendorLeaderboard
+            rows={leaderboardPagination.items}
+            page={leaderboardPagination.page}
+            totalPages={leaderboardPagination.totalPages}
+            totalRows={leaderboardPagination.totalRows}
+            onPageChange={setLeaderboardPage}
+            loading={dashboardLoading}
+            plantaFilter={dashboardPlantaFilter}
+          />
         </section>
       )}
 
@@ -1417,7 +1627,7 @@ function SeguimientoFolderTabs({ tabs, activeKey, counts, onSelect, children }) 
                 <p className={`text-xs font-bold leading-tight ${active ? "text-slate-900" : "text-slate-600"}`}>
                   {tab.label}
                 </p>
-                <span className="shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold leading-none text-orange-700 ring-1 ring-orange-200/80">
+                <span className="shrink-0 rounded-full border border-red-300 bg-red-100 px-1.5 py-0.5 text-[10px] font-bold leading-none text-red-700">
                   {count}
                 </span>
               </div>
@@ -1436,32 +1646,126 @@ function SeguimientoFolderTabs({ tabs, activeKey, counts, onSelect, children }) 
   );
 }
 
+function getDashboardPastelStatusBadgeClass(status) {
+  const normalized = normalizeCotizacionEstatus(status);
+
+  if (normalized === ESTATUS.CERRADA) {
+    return `${statusBadgeBaseClass} border-emerald-200/90 bg-emerald-50/90 text-emerald-700/95`;
+  }
+
+  return `${statusBadgeBaseClass} border-amber-200/90 bg-amber-50/90 text-amber-800/90`;
+}
+
+function DashboardRecentQuotesCard({
+  quotes,
+  page,
+  totalPages,
+  totalRows,
+  onPageChange,
+  loading,
+  statusBadge,
+  money,
+  plantaFilter,
+}) {
+  const filterLabel =
+    plantaFilter === "general" ? "todas las plantas" : getPlantaLabel(plantaFilter);
+
+  const emptyMessage = `No hay cotizaciones en las ultimas 24 h para ${filterLabel}.`;
+
+  return (
+    <article className={`${cardClass} flex flex-col lg:col-span-2 lg:min-h-[19rem]`}>
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">
+            Cotizaciones recientes
+          </h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Ultimas 24 h · max. {DASHBOARD_RECENT_QUOTES_PAGE_SIZE} por pagina
+          </p>
+        </div>
+        {!loading && (
+          <p className="text-xs font-medium text-slate-500 tabular-nums">
+            {totalRows} en periodo
+          </p>
+        )}
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="dashboard-recent-quotes-scroll min-h-0 flex-1 overflow-y-auto overflow-x-auto">
+          <QuotesTable
+            quotes={quotes}
+            loading={loading}
+            showVendor
+            readOnlyStatus
+            statusBadge={statusBadge}
+            money={money}
+            emptyMessage={emptyMessage}
+            compactRows
+          />
+        </div>
+
+        {!loading && totalRows > 0 && (
+          <div className="mt-2 flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 pt-2">
+            <span className="mr-1 text-[11px] text-slate-400 tabular-nums">
+              {page}/{totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+              aria-label="Cotizaciones anteriores"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/90 bg-white/90 text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+              aria-label="Cotizaciones siguientes"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/90 bg-white/90 text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
 function QuotesTable({
   quotes,
   loading,
   showVendor,
+  showContact = false,
+  readOnlyStatus = false,
   statusUpdatingId,
   onStatusChange,
   statusBadge,
   money,
   emptyMessage = "Aun no hay cotizaciones guardadas.",
+  compactRows = false,
 }) {
+  const rowCellClass = compactRows ? "py-2" : "py-2.5";
+
   if (loading) {
-    return <p className="py-8 text-center text-sm text-slate-500">Cargando cotizaciones...</p>;
+    return <p className="py-6 text-center text-sm text-slate-500">Cargando cotizaciones...</p>;
   }
 
   if (!quotes.length) {
-    return <p className="py-8 text-center text-sm text-slate-500">{emptyMessage}</p>;
+    return <p className="py-6 text-center text-sm text-slate-500">{emptyMessage}</p>;
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="text-xs uppercase text-slate-500">
+      <table className={`w-full text-left text-sm ${showContact ? "min-w-[760px]" : "min-w-[640px]"}`}>
+        <thead className="sticky top-0 z-[1] bg-white text-xs uppercase text-slate-500">
           <tr>
             <th className="pb-2">Folio</th>
             <th className="pb-2">Fecha</th>
             <th className="pb-2">Cliente</th>
+            {showContact && <th className="pb-2">Contacto</th>}
             {showVendor && <th className="pb-2">Vendedor</th>}
             <th className="pb-2">Volumen</th>
             <th className="pb-2">Monto</th>
@@ -1471,28 +1775,199 @@ function QuotesTable({
         <tbody className="text-slate-700">
           {quotes.map((quote) => (
             <tr key={quote.id} className="border-t border-slate-100">
-              <td className="py-2.5 font-semibold">{quote.folio}</td>
+              <td className={`${rowCellClass} font-semibold`}>{quote.folio}</td>
               <td>{quote.fecha}</td>
               <td>{quote.cliente}</td>
+              {showContact && <td className="whitespace-nowrap tabular-nums">{formatContactPhone(quote.whatsappCliente)}</td>}
               {showVendor && <td>{quote.vendedorNombre}</td>}
               <td>{formatVolume(Number(quote.volumen) || 0)}</td>
               <td>{money(Number(quote.total) || 0)}</td>
               <td>
-                <select
-                  value={quote.status}
-                  disabled={statusUpdatingId === quote.id}
-                  onChange={(event) => onStatusChange(quote.id, event.target.value)}
-                  className={`rounded-full border px-2 py-1 text-xs font-semibold outline-none ring-[var(--brand)] transition focus:ring-2 disabled:opacity-60 ${statusBadge(quote.status)}`}
-                >
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="Cerrada">Cerrada</option>
-                </select>
+                {readOnlyStatus ? (
+                  <span className={`inline-flex ${statusBadge(quote.status)}`}>
+                    {normalizeCotizacionEstatus(quote.status)}
+                  </span>
+                ) : (
+                  <select
+                    value={quote.status}
+                    disabled={statusUpdatingId === quote.id}
+                    onChange={(event) => onStatusChange(quote.id, event.target.value)}
+                    className={statusBadge(quote.status)}
+                  >
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Cerrada">Cerrada</option>
+                  </select>
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function DashboardPlantaFilters({ value, onChange, className = "" }) {
+  return (
+    <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Filtro de planta
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onChange("general")}
+          className={`${dashboardPlantaFilterButtonClass} ${dashboardPlantaFilterButtonVariantClass("general", value === "general")}`}
+        >
+          General
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(EMPRESA_IDS.TEPEXI)}
+          className={`${dashboardPlantaFilterButtonClass} ${dashboardPlantaFilterButtonVariantClass("tepexi", value === EMPRESA_IDS.TEPEXI)}`}
+        >
+          Tepexi
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(EMPRESA_IDS.NARVAEZ)}
+          className={`${dashboardPlantaFilterButtonClass} ${dashboardPlantaFilterButtonVariantClass("narvaez", value === EMPRESA_IDS.NARVAEZ)}`}
+        >
+          Narvaez
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function VendorLeaderboard({
+  rows,
+  page,
+  totalPages,
+  totalRows,
+  onPageChange,
+  loading,
+  plantaFilter,
+}) {
+  const filterLabel =
+    plantaFilter === "general" ? "todas las plantas" : getPlantaLabel(plantaFilter);
+
+  return (
+    <article className={`${cardClass} mt-4`}>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">
+            Rendimiento por vendedor
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Leaderboard · {filterLabel} · {LEADERBOARD_PAGE_SIZE} por pagina
+          </p>
+        </div>
+        <p className="text-xs font-medium text-slate-500">
+          {loading ? "Cargando..." : `${totalRows} vendedores`}
+        </p>
+      </div>
+
+      <div className="flex justify-center overflow-x-auto px-2">
+        <div className="vendor-leaderboard-frame inline-block overflow-hidden rounded-xl border border-slate-200 bg-white ring-1 ring-slate-200/80">
+          <table className="vendor-leaderboard-table w-auto text-center text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <th className="px-5 pb-3 pt-3">Vendedor</th>
+              <th className="px-5 pb-3 pt-3">Planta</th>
+              <th className="px-5 pb-3 pt-3">Cotiz.</th>
+              <th className="px-5 pb-3 pt-3">Monto cerradas</th>
+              <th className="px-5 pb-3 pt-3">Estatus</th>
+              <th className="px-5 pb-3 pt-3">Eficiencia</th>
+            </tr>
+          </thead>
+          <tbody className="text-slate-700">
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
+                  Cargando ranking...
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
+                  Sin vendedores para este filtro.
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.vendorKey} className="border-t border-slate-100">
+                  <td className="px-5 py-3 font-semibold">{row.vendedorNombre}</td>
+                  <td className="px-5 py-3">
+                    <span
+                      className={`inline-flex rounded-full border-2 px-2 py-0.5 text-xs font-semibold ${getPlantaBadgeClass(row.empresaId)}`}
+                    >
+                      {row.planta}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 tabular-nums">{row.totalCotizaciones}</td>
+                  <td className="px-5 py-3 font-semibold tabular-nums text-emerald-800">
+                    {money(row.montoCerradas)}
+                  </td>
+                  <td className="px-5 py-3">
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                        Cerradas {row.cerradas}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">
+                        Pend. {row.pendientes}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <span
+                      className={`inline-flex min-w-[3rem] justify-center rounded-lg px-2 py-1 text-sm font-bold tabular-nums ${
+                        row.eficienciaPct >= 40
+                          ? "bg-emerald-50 text-emerald-700"
+                          : row.eficienciaPct >= 20
+                            ? "bg-amber-50 text-amber-800"
+                            : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {row.eficienciaPct}%
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          </table>
+        </div>
+      </div>
+
+      {!loading && totalRows > 0 && (
+        <div className="leaderboard-pagination mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+              aria-label="Pagina anterior"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+              aria-label="Pagina siguiente"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-xs text-slate-500">
+            Pagina {page} de {totalPages}
+          </p>
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -1542,33 +2017,54 @@ function CheckOption({
   );
 }
 
-function HeaderLogo({ tenant }) {
+function DualBrandLogos({ size = "admin", className = "", priority = false }) {
+  const isLogin = size === "login";
+  const isAdmin = size === "admin";
+
+  const narvaezClass = isLogin || isAdmin ? "h-12 sm:h-14" : "h-9";
+  const tepexiClass = isLogin || isAdmin ? "h-12 sm:h-14" : "h-9";
+  const dividerClass =
+    isLogin || isAdmin ? "h-11 w-px bg-slate-300/80 sm:h-12" : "h-8 w-px bg-slate-300/70";
+
+  return (
+    <div className={`flex shrink-0 items-center gap-2 sm:gap-3 ${className}`}>
+      <Image
+        src="/Logo-CN-Color.png"
+        alt="Concretos Narváez"
+        width={150}
+        height={70}
+        className={`${narvaezClass} w-auto object-contain`}
+        priority={priority}
+      />
+      <span className={`${dividerClass} shrink-0 rounded-full`} aria-hidden="true" />
+      <Image
+        src="/logo-tepexi.jpeg"
+        alt="Concretos Tepexi"
+        width={150}
+        height={70}
+        className={`${tepexiClass} w-auto rounded object-contain`}
+        priority={priority}
+      />
+    </div>
+  );
+}
+
+function HeaderLogo({ tenant, large = false, xlarge = false, className = "" }) {
+  const singleLogoClass = xlarge ? "h-14 sm:h-16" : large ? "h-12 sm:h-14" : "h-9";
+
   if (tenant.logo) {
     return (
       <Image
         src={tenant.logo}
         alt={tenant.name}
-        width={120}
-        height={42}
-        className="h-9 w-auto rounded object-contain"
+        width={xlarge ? 180 : large ? 156 : 120}
+        height={xlarge ? 62 : large ? 54 : 42}
+        className={`w-auto shrink-0 rounded object-contain ${singleLogoClass} ${className}`}
       />
     );
   }
 
-  return (
-    <div className="flex items-center gap-2">
-      {tenant.logos.map((src) => (
-        <Image
-          key={src}
-          src={src}
-          alt={tenant.name}
-          width={90}
-          height={36}
-          className="h-8 w-auto rounded object-contain"
-        />
-      ))}
-    </div>
-  );
+  return <DualBrandLogos size="admin" className={className} />;
 }
 
 function MetricCard({ title, value, icon }) {
@@ -1581,26 +2077,28 @@ function MetricCard({ title, value, icon }) {
   );
 }
 
-function Bar({ label, height, value, front, side, top }) {
+function Bar({ label, fullLabel, height, value, front, side, top }) {
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="text-xs font-bold text-slate-700">{value}</div>
-      <div className={`relative ${height} w-[3.75rem]`}>
+    <div className="flex w-11 shrink-0 flex-col items-center gap-1 px-0.5" title={fullLabel}>
+      <div className="whitespace-nowrap text-[10px] font-bold leading-tight text-slate-700">{value}</div>
+      <div className={`relative ${height} w-9`}>
         <div
-          className="absolute -top-2 left-0 z-20 h-2.5 w-12 -skew-x-[35deg] rounded-sm shadow-sm"
+          className="absolute -top-1.5 left-0 z-20 h-2 w-9 -skew-x-[35deg] rounded-sm shadow-sm"
           style={{ background: top }}
         />
         <div
-          className="absolute bottom-0 left-0 z-10 h-full w-12 rounded-t-lg shadow-[inset_-3px_0_10px_rgba(255,255,255,0.22)]"
+          className="absolute bottom-0 left-0 z-10 h-full w-9 rounded-t-md shadow-[inset_-2px_0_8px_rgba(255,255,255,0.22)]"
           style={{ background: front }}
         />
         <div
-          className="absolute bottom-0 left-12 z-10 h-full w-3 rounded-tr-md shadow-md"
+          className="absolute bottom-0 left-9 z-10 h-full w-2 rounded-tr-sm shadow-md"
           style={{ background: side }}
         />
-        <div className="absolute -bottom-1 left-1 h-2 w-14 rounded-full bg-slate-400/25 blur-[2px]" />
+        <div className="absolute -bottom-0.5 left-0.5 h-1.5 w-10 rounded-full bg-slate-400/25 blur-[1px]" />
       </div>
-      <div className="text-xs font-medium text-slate-600">{label}</div>
+      <div className="max-w-[2.75rem] truncate text-center text-[10px] font-medium leading-tight text-slate-600">
+        {label}
+      </div>
     </div>
   );
 }
