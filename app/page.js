@@ -75,11 +75,12 @@ const VENDOR_CHART_PALETTES = {
 };
 
 const cardClass =
-  "app-card group rounded-2xl bg-white p-4 shadow ring-1 ring-slate-200 border-l-4 border-[var(--brand)]";
+  "app-card group rounded-2xl bg-white p-3 shadow ring-1 ring-slate-200 border-l-4 border-[var(--brand)] sm:p-4";
 
 const sectionIconClass = "h-5 w-5 shrink-0 text-[var(--brand)]";
 
-const vendorPanelNameClass = "vendor-panel-name text-[20px] font-semibold leading-snug";
+const vendorPanelNameClass =
+  "vendor-panel-name text-lg font-semibold leading-snug sm:text-[20px]";
 const vendorPanelTitleClass =
   "mt-1 text-sm font-bold uppercase tracking-wide text-slate-900";
 
@@ -100,10 +101,10 @@ const dashboardPlantaFilterButtonClass =
   "rounded-full border-2 px-3 py-1.5 text-xs font-semibold shadow-sm transition-all duration-150 active:translate-y-0.5 active:scale-[0.97]";
 
 const logoutButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner";
+  "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner sm:w-auto";
 
 const newQuoteButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-150 hover:bg-[var(--brand-strong)] active:translate-y-0.5 active:scale-[0.98] active:bg-[var(--brand-strong)] active:shadow-md";
+  "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-150 hover:bg-[var(--brand-strong)] active:translate-y-0.5 active:scale-[0.98] active:bg-[var(--brand-strong)] active:shadow-md sm:w-auto";
 
 const navDockButtonClass =
   "rounded-full px-3.5 py-2 text-xs font-semibold transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md active:translate-y-0.5 active:scale-[0.94] active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35";
@@ -1043,10 +1044,14 @@ export default function Page() {
 
   return (
     <main
-      className={`min-h-screen bg-slate-100 text-slate-900 ${themeClass} ${sessionUser ? "pb-28" : ""}`}
+      className={`min-h-screen bg-slate-100 text-slate-900 ${themeClass} ${
+        sessionUser
+          ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] sm:pb-28"
+          : ""
+      }`}
     >
       {sessionUser && (
-        <div className="nav-view-dock fixed bottom-3 right-3 z-50 flex gap-1.5 rounded-full bg-white/90 p-1.5 shadow-lg ring-1 ring-slate-200 backdrop-blur">
+        <div className="nav-view-dock fixed bottom-0 left-3 right-3 z-50 flex gap-1.5 rounded-t-2xl bg-white/95 p-1.5 shadow-lg ring-1 ring-slate-200 backdrop-blur sm:bottom-3 sm:left-auto sm:right-3 sm:w-auto sm:rounded-full">
           <button
             type="button"
             onClick={() => setView("cotizador")}
@@ -1081,8 +1086,8 @@ export default function Page() {
       )}
 
       {view === "login" && (
-        <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-8">
-          <div className="rounded-2xl border-l-4 border-slate-800 bg-white p-6 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl">
+        <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-5 sm:py-8">
+          <div className="rounded-2xl border-l-4 border-slate-800 bg-white p-5 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl sm:p-6">
             <div className="mb-7 text-center">
               <DualBrandLogos size="login" className="mx-auto mb-8" priority />
               <h1 className="text-base font-bold uppercase tracking-wide text-slate-900 sm:text-lg">
@@ -1145,21 +1150,21 @@ export default function Page() {
       )}
 
       {view === "cotizador" && sessionUser && (
-        <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
+        <section className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <header className={`mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-1" />
-                  <div>
+              <div className="min-w-0">
+                <div className="flex items-start gap-2.5 sm:items-center sm:gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-1 shrink-0" />
+                  <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className={vendorPanelNameClass}>{vendedorNombre}</p>
-                    <h2 className={vendorPanelTitleClass}>Cotizador de Concreto Premezclado</h2>
+                    <p className={`${vendorPanelNameClass} truncate`}>{vendedorNombre}</p>
+                    <h2 className={`${vendorPanelTitleClass} text-balance`}>Cotizador de Concreto Premezclado</h2>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 sm:items-end">
-                <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+                <div className="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:flex-wrap sm:justify-end">
                   <button type="button" onClick={handleLogout} className={logoutButtonClass}>
                     <LogOut className="h-4 w-4" />
                     Cerrar sesion
@@ -1169,17 +1174,17 @@ export default function Page() {
                     + Nueva Cotizacion
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:w-[340px]">
+                <div className="grid w-full grid-cols-2 gap-2 sm:w-[340px]">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Fecha</p>
-                    <p className="flex items-center gap-1 text-sm font-semibold text-slate-800">
-                      <CalendarDays className="h-4 w-4 text-slate-500" />
-                      {fechaActual}
+                    <p className="flex items-center gap-1 text-xs font-semibold text-slate-800 sm:text-sm">
+                      <CalendarDays className="h-4 w-4 shrink-0 text-slate-500" />
+                      <span className="truncate">{fechaActual}</span>
                     </p>
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Folio</p>
-                    <p className="text-sm font-semibold text-slate-800">{displayFolio}</p>
+                    <p className="truncate text-xs font-semibold text-slate-800 sm:text-sm">{displayFolio}</p>
                   </div>
                 </div>
               </div>
@@ -1209,7 +1214,7 @@ export default function Page() {
           )}
 
           <div className="grid gap-4 lg:grid-cols-5">
-            <div className="space-y-4 lg:col-span-3">
+            <div className="order-2 space-y-4 lg:order-none lg:col-span-3">
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <Users className={sectionIconClass} />
@@ -1301,7 +1306,7 @@ export default function Page() {
                   <ListChecks className={sectionIconClass} />
                   Paso 4 - Servicios extra
                 </h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-1 gap-2 text-sm min-[480px]:grid-cols-2">
                   <CheckOption label="Bomba Estacionaria" checked={bombaEstacionaria} onChange={setBombaEstacionaria} disabled={formLocked} />
                   <CheckOption label="Bomba Pluma" checked={bombaPluma} onChange={setBombaPluma} disabled={formLocked} />
                   <CheckOption label="Servicio en Domingo" checked={domingo} onChange={setDomingo} disabled={formLocked} />
@@ -1366,7 +1371,7 @@ export default function Page() {
               </article>
             </div>
 
-            <aside className="quote-print-area space-y-4 lg:col-span-2">
+            <aside className="quote-print-area order-1 space-y-4 lg:order-none lg:col-span-2">
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <MapPin className={sectionIconClass} />
@@ -1391,7 +1396,7 @@ export default function Page() {
                 )}
               </article>
 
-              <article className={`sticky top-4 ${cardClass}`}>
+              <article className={`quote-summary-sticky sticky top-4 ${cardClass}`}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <Banknote className={sectionIconClass} />
                   Paso 5 - Cierre y desglose
@@ -1406,12 +1411,12 @@ export default function Page() {
                 </div>
 
                 <ul className="space-y-2 text-sm text-slate-700">
-                  <li className="flex justify-between">
+                  <li className="quote-breakdown-row flex justify-between gap-2">
                     <span>Concreto base</span>
-                    <span className="font-semibold">{money(priceModel.concreteSubtotal)}</span>
+                    <span className="shrink-0 font-semibold">{money(priceModel.concreteSubtotal)}</span>
                   </li>
                   {priceModel.ageSubtotal > 0 && (
-                    <li className="flex justify-between">
+                    <li className="quote-breakdown-row flex justify-between gap-2">
                       <span>
                         {edad} ({money(priceModel.ageRate)} / m3)
                       </span>
@@ -1419,34 +1424,34 @@ export default function Page() {
                     </li>
                   )}
                   {aditivos.map((name) => (
-                    <li key={name} className="flex justify-between">
+                    <li key={name} className="quote-breakdown-row flex justify-between gap-2">
                       <span>
                         {name} ({money(additiveCost[name])} / m3)
                       </span>
-                      <span className="font-semibold">
+                      <span className="shrink-0 font-semibold">
                         {money(priceModel.baseM3 > 0 ? additiveCost[name] * priceModel.baseM3 : 0)}
                       </span>
                     </li>
                   ))}
-                  <li className="flex justify-between">
+                  <li className="quote-breakdown-row flex justify-between gap-2">
                     <span>Servicios extra</span>
-                    <span className="font-semibold">{money(priceModel.extrasSubtotal)}</span>
+                    <span className="shrink-0 font-semibold">{money(priceModel.extrasSubtotal)}</span>
                   </li>
                   {priceModel.vacioSubtotal > 0 && (
-                    <li className="flex justify-between">
+                    <li className="quote-breakdown-row flex justify-between gap-2">
                       <span>Cargo por vacio ({priceModel.vacioM3} m3)</span>
-                      <span className="font-semibold">{money(priceModel.vacioSubtotal)}</span>
+                      <span className="shrink-0 font-semibold">{money(priceModel.vacioSubtotal)}</span>
                     </li>
                   )}
                   {priceModel.distanciaSubtotal > 0 && (
-                    <li className="flex justify-between">
+                    <li className="quote-breakdown-row flex justify-between gap-2">
                       <span>Cargo por distancia</span>
-                      <span className="font-semibold">{money(priceModel.distanciaSubtotal)}</span>
+                      <span className="shrink-0 font-semibold">{money(priceModel.distanciaSubtotal)}</span>
                     </li>
                   )}
-                  <li className="flex justify-between border-t border-slate-200 pt-2">
+                  <li className="quote-breakdown-row flex justify-between gap-2 border-t border-slate-200 pt-2">
                     <span>Subtotal</span>
-                    <span className="font-semibold">{money(priceModel.subtotal)}</span>
+                    <span className="shrink-0 font-semibold">{money(priceModel.subtotal)}</span>
                   </li>
                 </ul>
 
@@ -1480,13 +1485,13 @@ export default function Page() {
                 </ul>
 
                 <div className="no-print mt-4 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
                     {!emittedQuote && (
                       <button
                         type="button"
                         onClick={handleEmitQuote}
                         disabled={isSavingQuote}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         <FilePlus className="h-4 w-4" />
                         {isSavingQuote ? "Emitiendo..." : "Emitir Cotizacion"}
@@ -1496,18 +1501,18 @@ export default function Page() {
                       type="button"
                       onClick={handleWhatsApp}
                       disabled={isSavingQuote}
-                      className={`flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 ${emittedQuote ? "col-span-2" : ""}`}
+                      className={`flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 ${emittedQuote ? "min-[400px]:col-span-2" : ""}`}
                     >
                       <Send className="h-4 w-4" />
                       {isSavingQuote ? "Procesando..." : "Enviar por WhatsApp"}
                     </button>
                   </div>
                   {emittedQuote && !documentActionsOpen && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
                       <button
                         type="button"
                         onClick={handleDownloadPdf}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         <FileText className="h-4 w-4" />
                         Descargar PDF
@@ -1515,7 +1520,7 @@ export default function Page() {
                       <button
                         type="button"
                         onClick={handlePrintEmitted}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         <Printer className="h-4 w-4" />
                         Imprimir Ahora
@@ -1533,20 +1538,20 @@ export default function Page() {
       )}
 
       {view === "seguimiento" && sessionUser && (
-        <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
+        <section className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <header className={`mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-1" />
-                  <div>
+              <div className="min-w-0">
+                <div className="flex items-start gap-2.5 sm:items-center sm:gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-1 shrink-0" />
+                  <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className={vendorPanelNameClass}>{vendedorNombre}</p>
-                    <h2 className={vendorPanelTitleClass}>Seguimiento de cotizaciones</h2>
+                    <p className={`${vendorPanelNameClass} truncate`}>{vendedorNombre}</p>
+                    <h2 className={`${vendorPanelTitleClass} text-balance`}>Seguimiento de cotizaciones</h2>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:w-auto sm:flex-row sm:items-center sm:justify-end">
                 <button type="button" onClick={handleLogout} className={logoutButtonClass}>
                   <LogOut className="h-4 w-4" />
                   Cerrar sesion
@@ -1585,13 +1590,13 @@ export default function Page() {
           </div>
 
           <article className={`${cardClass} overflow-hidden`}>
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                 <ListChecks className={sectionIconClass} />
                 Mis cotizaciones
               </h3>
               {activeSeguimientoTab && (
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-xs font-medium text-slate-500 sm:text-right">
                   {seguimientoQuotesByDay.length} en {activeSeguimientoTab.label.toLowerCase()}
                 </p>
               )}
@@ -1621,21 +1626,21 @@ export default function Page() {
       )}
 
       {view === "dashboard" && sessionUser?.role === "admin" && (
-        <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6">
+        <section className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <header className={`mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-1" />
-                  <div>
+              <div className="min-w-0">
+                <div className="flex items-start gap-2.5 sm:items-center sm:gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-1 shrink-0" />
+                  <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                       Panel de gerencia
                     </p>
-                    <h2 className={vendorPanelTitleClass}>Administrador</h2>
+                    <h2 className={`${vendorPanelTitleClass} text-balance`}>Administrador</h2>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:w-auto sm:flex-row sm:items-center">
                 <button type="button" onClick={handleLogout} className={logoutButtonClass}>
                   <LogOut className="h-4 w-4" />
                   Cerrar sesion
@@ -1687,7 +1692,7 @@ export default function Page() {
 
           <div className="mt-4 grid gap-4 lg:grid-cols-3 lg:items-stretch">
             <article className={`${cardClass} flex flex-col lg:col-span-1 lg:min-h-[19rem]`}>
-              <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-700">
+              <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-700 text-balance">
                 Top vendedores por monto
               </h3>
               <p className="mb-4 text-xs text-slate-500">
@@ -1739,8 +1744,8 @@ export default function Page() {
       )}
 
       {documentActionsOpen && emittedQuote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl ring-1 ring-slate-200">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-3 sm:items-center sm:p-4">
+          <div className="max-h-[min(92dvh,100%)] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-xl ring-1 ring-slate-200 sm:max-h-none">
             <div className="mb-4 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                 <CheckCircle2 className="h-6 w-6" />
@@ -1792,7 +1797,7 @@ function SeguimientoFolderTabs({ tabs, activeKey, counts, onSelect, children }) 
               role="tab"
               aria-selected={active}
               onClick={() => onSelect(tab.key)}
-              className={`group relative min-w-[5.75rem] shrink-0 rounded-t-xl border px-2.5 pb-2 pt-2 text-left transition-all duration-200 sm:min-w-[6.5rem] sm:px-3 ${
+              className={`group relative min-w-[5.25rem] shrink-0 rounded-t-xl border px-2 pb-2 pt-2 text-left transition-all duration-200 sm:min-w-[6.5rem] sm:px-3 ${
                 active
                   ? "z-10 -mb-px border-[var(--brand)] border-b-white bg-white shadow-[0_-4px_18px_rgba(15,23,42,0.08)]"
                   : "border-slate-200/90 bg-gradient-to-b from-slate-50 to-slate-100/80 hover:border-slate-300 hover:from-white hover:to-slate-50 hover:shadow-sm"
@@ -1934,7 +1939,7 @@ function QuotesTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="table-scroll-touch -mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0">
       <table
         className={`w-full text-left text-sm ${
           showContact && showVendor
@@ -1997,11 +2002,11 @@ function QuotesTable({
 
 function DashboardPlantaFilters({ value, onChange, className = "" }) {
   return (
-    <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Filtro de planta
       </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
         <button
           type="button"
           onClick={() => onChange("general")}
@@ -2056,7 +2061,7 @@ function VendorLeaderboard({
         </p>
       </div>
 
-      <div className="flex justify-center overflow-x-auto px-2">
+      <div className="table-scroll-touch flex justify-start overflow-x-auto px-1 sm:justify-center sm:px-2">
         <div className="vendor-leaderboard-frame inline-block overflow-hidden rounded-xl border border-slate-200 bg-white ring-1 ring-slate-200/80">
           <table className="vendor-leaderboard-table w-auto text-center text-sm">
           <thead>
@@ -2186,7 +2191,7 @@ function CheckOption({
   disabled = false,
 }) {
   return (
-    <label className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 ${disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
+    <label className={`flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 ${disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
       <input
         type="checkbox"
         checked={checked}
@@ -2287,7 +2292,7 @@ function MetricCard({ title, value, icon }) {
     <article className={cardClass}>
       <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-soft)]">{icon}</div>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-      <p className="mt-1 text-lg font-bold text-slate-900">{value}</p>
+      <p className="mt-1 text-base font-bold leading-snug text-slate-900 break-words sm:text-lg">{value}</p>
     </article>
   );
 }

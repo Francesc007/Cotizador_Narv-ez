@@ -32,8 +32,8 @@ export default async function QuotePdfPage({ params, searchParams }) {
   return (
     <main className={`quote-pdf-document min-h-screen bg-white text-slate-900 ${tenant.themeClass}`}>
       {print === "1" && <PrintTrigger />}
-      <article className="mx-auto max-w-3xl px-6 py-10 print:px-0 print:py-0">
-        <header className="mb-8 flex items-start justify-between border-b border-slate-200 pb-6">
+      <article className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10 print:px-0 print:py-0">
+        <header className="mb-8 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
             {tenant.logo ? (
               <Image
@@ -49,7 +49,7 @@ export default async function QuotePdfPage({ params, searchParams }) {
             )}
             <p className="mt-2 text-sm text-slate-600">Cotizacion de concreto premezclado</p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <p className="text-xs uppercase tracking-wide text-slate-500">Folio</p>
             <p className="text-2xl font-bold text-slate-900">{quote.folio_institucional}</p>
             <p className="mt-2 text-sm text-slate-600">{fecha}</p>

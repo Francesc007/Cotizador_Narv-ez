@@ -12,10 +12,15 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
 
 /* ----------------------------------------------------------------
@@ -207,17 +212,93 @@ body {
 
 /* Paginacion del leaderboard: flechas a la izquierda, lejos del dock fijo */
 .leaderboard-pagination {
-  max-width: calc(100% - 0.5rem);
+  max-width: 100%;
 }
 
-/* Cotizaciones recientes: altura alineada al grafico lateral (h-56) */
+/* Cotizaciones recientes: altura util en movil y tablet */
 .dashboard-recent-quotes-scroll {
-  max-height: 14rem;
+  max-height: min(52vh, 22rem);
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 640px) {
+  .dashboard-recent-quotes-scroll {
+    max-height: min(48vh, 20rem);
+  }
 }
 
 @media (min-width: 1024px) {
   .dashboard-recent-quotes-scroll {
     max-height: 14rem;
+  }
+}
+
+/* Dock de navegacion: barra inferior en movil, pill en escritorio */
+.nav-view-dock {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 639px) {
+  .nav-view-dock {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0;
+    justify-content: stretch;
+    gap: 0.375rem;
+    border-radius: 1rem 1rem 0 0;
+    padding: 0.5rem 0.5rem max(0.625rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .nav-view-dock button {
+    flex: 1 1 0;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: 0.6875rem;
+    line-height: 1.2;
+  }
+}
+
+/* Tablas con scroll horizontal en pantallas pequenas */
+.table-scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 639px) {
+  .vendor-leaderboard-table th,
+  .vendor-leaderboard-table td {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  .vendor-top-chart {
+    justify-content: flex-start;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+}
+
+/* Resumen de cotizacion: sticky solo en escritorio */
+@media (max-width: 1023px) {
+  .quote-summary-sticky {
+    position: static;
+    top: auto;
+  }
+}
+
+/* Filas de desglose: apilar etiqueta y monto en movil */
+@media (max-width: 479px) {
+  .quote-breakdown-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+
+  .quote-breakdown-row > span:last-child {
+    align-self: flex-end;
   }
 }
 
