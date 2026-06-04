@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { formatMexicoDateLong } from "@/lib/dates/mexico";
 import { getCotizacionByFolio } from "@/lib/supabase/cotizaciones";
 import { getTenant } from "@/lib/tenants/themes";
 import PrintTrigger from "./PrintTrigger";
@@ -21,13 +22,7 @@ export default async function QuotePdfPage({ params, searchParams }) {
   }
 
   const tenant = getTenant(quote.empresa_id);
-  const fecha = quote.creado_at
-    ? new Date(quote.creado_at).toLocaleDateString("es-MX", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "—";
+  const fecha = quote.creado_at ? formatMexicoDateLong(quote.creado_at) : "—";
 
   return (
     <main className={`quote-pdf-document min-h-screen bg-white text-slate-900 ${tenant.themeClass}`}>

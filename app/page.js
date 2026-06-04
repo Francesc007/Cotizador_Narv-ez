@@ -30,6 +30,14 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
+import {
+  formatMexicoDateLong,
+  getMexicoDayKey,
+  mexicoDayKeyDaysAgo,
+  MEXICO_TZ,
+  parseMexicoDisplayDateToDayKey,
+  todayMexicoDayKey,
+} from "@/lib/dates/mexico";
 import { isGlobalAdmin, isPlantAdmin } from "@/lib/auth/admin-scope";
 import { getTenant, NEUTRAL_TENANT, TENANTS } from "@/lib/tenants/themes";
 import {
@@ -80,7 +88,7 @@ const cardClass =
 const sectionIconClass = "h-5 w-5 shrink-0 text-[var(--brand)]";
 
 const vendorPanelNameClass =
-  "vendor-panel-name text-lg font-semibold leading-snug sm:text-[20px]";
+  "vendor-panel-name text-base font-semibold leading-snug lg:text-[20px]";
 const vendorPanelTitleClass =
   "vendor-panel-title mt-1 text-sm font-bold uppercase tracking-wide text-slate-900";
 
@@ -101,10 +109,10 @@ const dashboardPlantaFilterButtonClass =
   "rounded-full border-2 px-3 py-1.5 text-xs font-semibold shadow-sm transition-all duration-150 active:translate-y-0.5 active:scale-[0.97]";
 
 const logoutButtonClass =
-  "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner sm:w-auto";
+  "page-header-btn inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 shadow-sm transition-all duration-150 hover:bg-red-100 active:translate-y-0.5 active:scale-[0.98] active:border-red-400 active:bg-red-200 active:shadow-inner lg:w-auto lg:px-4 lg:py-2.5";
 
 const newQuoteButtonClass =
-  "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-150 hover:bg-[var(--brand-strong)] active:translate-y-0.5 active:scale-[0.98] active:bg-[var(--brand-strong)] active:shadow-md sm:w-auto";
+  "page-header-btn inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-3 py-2 text-sm font-bold text-white shadow-lg transition-all duration-150 hover:bg-[var(--brand-strong)] active:translate-y-0.5 active:scale-[0.98] active:bg-[var(--brand-strong)] active:shadow-md lg:w-auto lg:px-4 lg:py-2.5";
 
 const navDockButtonClass =
   "rounded-full px-3.5 py-2 text-xs font-semibold transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md active:translate-y-0.5 active:scale-[0.94] active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35";
@@ -203,35 +211,6 @@ const nombreDesdeEmail = (correo) => {
     .join(" ");
 };
 
-function formatDayKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function todayDayKey() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return formatDayKey(today);
-}
-
-/** Ultimos 7 dias (misma ventana que las pestañas de Seguimiento). */
-function isQuoteInCurrentWeek(creadoAt) {
-  if (!creadoAt) return false;
-
-  const quoteDay = new Date(creadoAt);
-  quoteDay.setHours(0, 0, 0, 0);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - 6);
-
-  return quoteDay >= weekStart && quoteDay <= today;
-}
-
 function dashboardPlantaFilterButtonVariantClass(variant, active) {
   if (variant === "tepexi") {
     return active
@@ -252,18 +231,15 @@ function dashboardPlantaFilterButtonVariantClass(variant, active) {
 
 function buildLast7DayTabs() {
   const tabs = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   for (let offset = 0; offset < 7; offset += 1) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - offset);
-    const key = formatDayKey(date);
-
-    const day = date.getDate();
-    const month = date.toLocaleDateString("es-MX", { month: "short" }).toUpperCase();
-    const datePart = `${day} ${month}`;
-    const weekday = date.toLocaleDateString("es-MX", { weekday: "short" });
+    const key = mexicoDayKeyDaysAgo(offset);
+    const [year, month, day] = key.split("-");
+    const anchor = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 18, 0, 0));
+    const datePart = `${Number(day)} ${anchor
+      .toLocaleDateString("es-MX", { timeZone: MEXICO_TZ, month: "short" })
+      .toUpperCase()}`;
+    const weekday = anchor.toLocaleDateString("es-MX", { timeZone: MEXICO_TZ, weekday: "short" });
     const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
 
     let label;
@@ -271,10 +247,7 @@ function buildLast7DayTabs() {
     else if (offset === 1) label = `Ayer | ${datePart}`;
     else label = `${capitalizedWeekday} | ${datePart}`;
 
-    tabs.push({
-      key,
-      label,
-    });
+    tabs.push({ key, label });
   }
 
   return tabs;
@@ -282,21 +255,10 @@ function buildLast7DayTabs() {
 
 function getQuoteDayKey(quote) {
   if (quote.creadoAt) {
-    const parsed = new Date(quote.creadoAt);
-    if (!Number.isNaN(parsed.getTime())) {
-      parsed.setHours(0, 0, 0, 0);
-      return formatDayKey(parsed);
-    }
+    return getMexicoDayKey(quote.creadoAt);
   }
 
-  if (typeof quote.fecha === "string" && quote.fecha.includes("/")) {
-    const [day, month, year] = quote.fecha.split("/");
-    if (day && month && year) {
-      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-  }
-
-  return null;
+  return parseMexicoDisplayDateToDayKey(quote.fecha);
 }
 
 function formatVolume(value) {
@@ -449,12 +411,9 @@ export default function Page() {
   const [dashboardRecentQuotesPage, setDashboardRecentQuotesPage] = useState(1);
   const [seguimientoQuotes, setSeguimientoQuotes] = useState([]);
   const [seguimientoLoading, setSeguimientoLoading] = useState(false);
-  const [seguimientoDayKey, setSeguimientoDayKey] = useState(todayDayKey);
+  const [seguimientoDayKey, setSeguimientoDayKey] = useState(todayMexicoDayKey);
 
-  const fechaActual = useMemo(
-    () => new Date().toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" }),
-    []
-  );
+  const fechaActual = useMemo(() => formatMexicoDateLong(), []);
 
   const vendedorNombre = useMemo(
     () => sessionUser?.name || nombreDesdeEmail(email),
@@ -1022,7 +981,7 @@ export default function Page() {
     setStatusUpdatingId(null);
     setLeaderboardPage(1);
     setDashboardRecentQuotesPage(1);
-    setSeguimientoDayKey(todayDayKey());
+    setSeguimientoDayKey(todayMexicoDayKey());
 
     if (nextUser && isPlantAdmin(nextUser)) {
       setDashboardPlantaFilter(nextUser.empresa);
@@ -1062,7 +1021,7 @@ export default function Page() {
           <button
             type="button"
             onClick={() => {
-              setSeguimientoDayKey(todayDayKey());
+              setSeguimientoDayKey(todayMexicoDayKey());
               setView("seguimiento");
               loadSeguimientoQuotes();
             }}
@@ -1086,9 +1045,9 @@ export default function Page() {
       )}
 
       {view === "login" && (
-        <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-5 sm:py-8">
-          <div className="rounded-2xl border-l-4 border-slate-800 bg-white p-5 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl sm:p-6">
-            <div className="mb-7 text-center">
+        <section className="login-screen-section mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 lg:px-5 lg:py-8">
+          <div className="login-screen-card rounded-2xl border-l-4 border-slate-800 bg-white p-5 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl lg:p-6">
+            <div className="login-screen-head mb-7 text-center">
               <DualBrandLogos size="login" className="mx-auto mb-8" priority />
               <h1 className="text-base font-bold uppercase tracking-wide text-slate-900 sm:text-lg">
                 Ecosistema de Cotización Corporativo
@@ -1152,29 +1111,29 @@ export default function Page() {
       {view === "cotizador" && sessionUser && (
         <section className="app-view-section mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <header className={`page-header-card mb-4 ${cardClass}`}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="page-header-brand flex items-start gap-2.5 sm:items-center sm:gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-0 shrink-0 sm:mt-1" />
-                  <div className="min-w-0 flex-1">
+            <div className="page-header-layout">
+              <div className="page-header-main min-w-0 flex-1">
+                <div className="page-header-brand">
+                  <HeaderLogo tenant={tenant} large className="header-logo-img mt-0 shrink-0" />
+                  <div className="page-header-text min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className={`${vendorPanelNameClass} break-words sm:truncate`}>{vendedorNombre}</p>
+                    <p className={`${vendorPanelNameClass} break-words lg:truncate`}>{vendedorNombre}</p>
                     <h2 className={`${vendorPanelTitleClass} text-balance`}>Cotizador de Concreto Premezclado</h2>
                   </div>
                 </div>
               </div>
-              <div className="page-header-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:items-end">
-                <div className="flex w-full flex-col gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              <div className="page-header-actions">
+                <div className="page-header-actions-toolbar">
                   <button type="button" onClick={handleLogout} className={logoutButtonClass}>
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-4 w-4 shrink-0" />
                     Cerrar sesion
                   </button>
                   <button type="button" onClick={resetQuoteForm} className={newQuoteButtonClass}>
-                    <FilePlus className="h-4 w-4" />
+                    <FilePlus className="h-4 w-4 shrink-0" />
                     + Nueva Cotizacion
                   </button>
                 </div>
-                <div className="page-header-meta grid w-full grid-cols-2 gap-2 sm:w-[340px]">
+                <div className="page-header-meta">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Fecha</p>
                     <p className="flex items-center gap-1 text-xs font-semibold text-slate-800 sm:text-sm">
@@ -1214,7 +1173,7 @@ export default function Page() {
           )}
 
           <div className="grid min-w-0 gap-4 lg:grid-cols-5">
-            <div className="order-2 min-w-0 space-y-4 lg:order-none lg:col-span-3">
+            <div className="min-w-0 space-y-4 lg:col-span-3">
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <Users className={sectionIconClass} />
@@ -1256,6 +1215,30 @@ export default function Page() {
                     />
                   </label>
                 </div>
+              </article>
+
+              <article className={cardClass}>
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
+                  <MapPin className={sectionIconClass} />
+                  Paso 2 - Ubicacion
+                </h3>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Codigo Postal</span>
+                  <input
+                    value={cp}
+                    onChange={(e) => setCp(e.target.value)}
+                    placeholder="Escribe 72000 para demo"
+                    disabled={formLocked}
+                    className={`${inputCotizadorClass} px-3 py-2.5 text-sm`}
+                  />
+                </label>
+                {cpDetected && (
+                  <div className="mt-2">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Detectado: Puebla Centro | Zona 1 de flete
+                    </span>
+                  </div>
+                )}
               </article>
 
               <article className={cardClass}>
@@ -1371,31 +1354,7 @@ export default function Page() {
               </article>
             </div>
 
-            <aside className="quote-print-area order-1 min-w-0 space-y-4 lg:order-none lg:col-span-2">
-              <article className={cardClass}>
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <MapPin className={sectionIconClass} />
-                  Paso 2 - Ubicacion
-                </h3>
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">Codigo Postal</span>
-                  <input
-                    value={cp}
-                    onChange={(e) => setCp(e.target.value)}
-                    placeholder="Escribe 72000 para demo"
-                    disabled={formLocked}
-                    className={`${inputCotizadorClass} px-3 py-2.5 text-sm`}
-                  />
-                </label>
-                {cpDetected && (
-                  <div className="mt-2">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Detectado: Puebla Centro | Zona 1 de flete
-                    </span>
-                  </div>
-                )}
-              </article>
-
+            <aside className="quote-print-area min-w-0 space-y-4 lg:col-span-2">
               <article className={`quote-summary-sticky sticky top-4 ${cardClass}`}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <Banknote className={sectionIconClass} />
@@ -1540,38 +1499,40 @@ export default function Page() {
       {view === "seguimiento" && sessionUser && (
         <section className="app-view-section mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <header className={`page-header-card mb-4 ${cardClass}`}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="page-header-brand flex items-start gap-2.5 sm:items-center sm:gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-0 shrink-0 sm:mt-1" />
-                  <div className="min-w-0 flex-1">
+            <div className="page-header-layout">
+              <div className="page-header-main min-w-0 flex-1">
+                <div className="page-header-brand">
+                  <HeaderLogo tenant={tenant} large className="header-logo-img mt-0 shrink-0" />
+                  <div className="page-header-text min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className={`${vendorPanelNameClass} break-words sm:truncate`}>{vendedorNombre}</p>
+                    <p className={`${vendorPanelNameClass} break-words lg:truncate`}>{vendedorNombre}</p>
                     <h2 className={`${vendorPanelTitleClass} text-balance`}>Seguimiento de cotizaciones</h2>
                   </div>
                 </div>
               </div>
-              <div className="page-header-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-                <button type="button" onClick={handleLogout} className={logoutButtonClass}>
-                  <LogOut className="h-4 w-4" />
-                  Cerrar sesion
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetQuoteForm();
-                    setView("cotizador");
-                  }}
-                  className={newQuoteButtonClass}
-                >
-                  <FilePlus className="h-4 w-4" />
-                  + Nueva Cotizacion
-                </button>
+              <div className="page-header-actions page-header-actions--inline">
+                <div className="page-header-actions-toolbar">
+                  <button type="button" onClick={handleLogout} className={logoutButtonClass}>
+                    <LogOut className="h-4 w-4 shrink-0" />
+                    Cerrar sesion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetQuoteForm();
+                      setView("cotizador");
+                    }}
+                    className={newQuoteButtonClass}
+                  >
+                    <FilePlus className="h-4 w-4 shrink-0" />
+                    + Nueva Cotizacion
+                  </button>
+                </div>
               </div>
             </div>
           </header>
 
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          <div className="dashboard-metrics-grid mb-4 grid gap-3 sm:grid-cols-3">
             <MetricCard
               title="Mis cotizaciones"
               value={`${seguimientoQuotes.length} registradas`}
@@ -1628,11 +1589,11 @@ export default function Page() {
       {view === "dashboard" && sessionUser?.role === "admin" && (
         <section className="app-view-section mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <header className={`page-header-card mb-4 ${cardClass}`}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="page-header-brand flex items-start gap-2.5 sm:items-center sm:gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-0 shrink-0 sm:mt-1" />
-                  <div className="min-w-0 flex-1">
+            <div className="page-header-layout">
+              <div className="page-header-main min-w-0 flex-1">
+                <div className="page-header-brand">
+                  <HeaderLogo tenant={tenant} large className="header-logo-img mt-0 shrink-0" />
+                  <div className="page-header-text min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                       Panel de gerencia
                     </p>
@@ -1640,22 +1601,24 @@ export default function Page() {
                   </div>
                 </div>
               </div>
-              <div className="page-header-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <button type="button" onClick={handleLogout} className={logoutButtonClass}>
-                  <LogOut className="h-4 w-4" />
-                  Cerrar sesion
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetQuoteForm();
-                    setView("cotizador");
-                  }}
-                  className={newQuoteButtonClass}
-                >
-                  <FilePlus className="h-4 w-4" />
-                  + Nueva Cotizacion
-                </button>
+              <div className="page-header-actions page-header-actions--inline">
+                <div className="page-header-actions-toolbar">
+                  <button type="button" onClick={handleLogout} className={logoutButtonClass}>
+                    <LogOut className="h-4 w-4 shrink-0" />
+                    Cerrar sesion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetQuoteForm();
+                      setView("cotizador");
+                    }}
+                    className={newQuoteButtonClass}
+                  >
+                    <FilePlus className="h-4 w-4 shrink-0" />
+                    + Nueva Cotizacion
+                  </button>
+                </div>
               </div>
             </div>
           </header>
@@ -1668,7 +1631,7 @@ export default function Page() {
             />
           )}
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="dashboard-metrics-grid grid gap-3 sm:grid-cols-3">
             <MetricCard
               title="Volumen Total Cotizado"
               value={dashboardLoading ? "Cargando..." : formatVolume(dashboardTotals.totalVolume)}
@@ -2002,7 +1965,7 @@ function QuotesTable({
 
 function DashboardPlantaFilters({ value, onChange, className = "" }) {
   return (
-    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+    <div className={`dashboard-planta-filters flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Filtro de planta
       </p>
@@ -2046,7 +2009,7 @@ function VendorLeaderboard({
     plantaFilter === "general" ? "todas las plantas" : getPlantaLabel(plantaFilter);
 
   return (
-    <article className={`${cardClass} mt-4 min-w-0`}>
+    <article className={`vendor-leaderboard-card ${cardClass} mt-4 min-w-0`}>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">
@@ -2061,9 +2024,9 @@ function VendorLeaderboard({
         </p>
       </div>
 
-      <div className="table-scroll-touch vendor-leaderboard-scroll flex justify-start overflow-x-auto sm:justify-center">
-        <div className="vendor-leaderboard-frame w-max max-w-none overflow-hidden rounded-xl border border-slate-200 bg-white ring-1 ring-slate-200/80">
-          <table className="vendor-leaderboard-table w-auto text-center text-sm">
+      <div className="vendor-leaderboard-scroll table-scroll-touch" role="region" aria-label="Tabla de rendimiento por vendedor">
+        <div className="vendor-leaderboard-frame">
+          <table className="vendor-leaderboard-table text-center text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold uppercase tracking-wide text-slate-500">
               <th className="px-5 pb-3 pt-3">Vendedor</th>
@@ -2209,11 +2172,11 @@ function DualBrandLogos({ size = "admin", className = "", priority = false }) {
   const isAdmin = size === "admin";
 
   const loginSlotClass =
-    "flex h-16 w-[7.5rem] items-center justify-center sm:h-[4.75rem] sm:w-[8.5rem]";
+    "flex h-14 w-[6.5rem] items-center justify-center lg:h-[4.75rem] lg:w-[8.5rem]";
   const loginTepexiSlotClass =
-    "flex h-14 w-[6.25rem] items-center justify-center sm:h-[4.25rem] sm:w-[7rem]";
+    "flex h-12 w-[5.5rem] items-center justify-center lg:h-[4.25rem] lg:w-[7rem]";
   const loginImageClass = "max-h-full max-w-full object-contain";
-  const adminImageClass = "h-12 w-auto object-contain sm:h-14";
+  const adminImageClass = "header-logo-img h-10 w-auto max-h-10 object-contain lg:h-14 lg:max-h-14";
   const compactImageClass = "h-9 w-auto object-contain";
 
   const dividerClass = isLogin
@@ -2259,7 +2222,7 @@ function DualBrandLogos({ size = "admin", className = "", priority = false }) {
   return (
     <div
       className={`flex shrink-0 items-center ${
-        isLogin ? "justify-center gap-4 sm:gap-5" : "dual-brand-logos--header gap-2 sm:gap-3"
+        isLogin ? "dual-brand-logos--login justify-center gap-3 lg:gap-5" : "dual-brand-logos--header gap-2 lg:gap-3"
       } ${className}`}
     >
       {renderLogo("/Logo-CN-Color.png", "Concretos Narváez")}
@@ -2270,7 +2233,7 @@ function DualBrandLogos({ size = "admin", className = "", priority = false }) {
 }
 
 function HeaderLogo({ tenant, large = false, xlarge = false, className = "" }) {
-  const singleLogoClass = xlarge ? "h-14 sm:h-16" : large ? "h-12 sm:h-14" : "h-9";
+  const singleLogoClass = xlarge ? "header-logo-img h-12 lg:h-16" : large ? "header-logo-img h-10 lg:h-14" : "header-logo-img h-9";
 
   if (tenant.logo) {
     return (
