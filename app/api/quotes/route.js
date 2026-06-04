@@ -1,3 +1,4 @@
+import { getAdminPlantaScope, isGlobalAdmin } from "@/lib/auth/admin-scope";
 import { getSessionUser } from "@/lib/auth/session";
 import { jsonResponse } from "@/lib/http";
 import {
@@ -6,9 +7,23 @@ import {
   listCotizacionesByVendedor,
   listCotizacionesForAdmin,
 } from "@/lib/supabase/cotizaciones";
-import { COTIZACIONES } from "@/lib/supabase/schema";
+import { COTIZACIONES, EMPRESA_IDS } from "@/lib/supabase/schema";
 
-function resolveEmpresaId(sessionUser, perfil) {
+function resolveEmpresaId(sessionUser, perfil, bodyEmpresaId) {
+  if (sessionUser.role === "admin") {
+    const plantaScope = getAdminPlantaScope(sessionUser, perfil);
+    if (plantaScope) {
+      return plantaScope;
+    }
+
+    const planta =
+      typeof bodyEmpresaId === "string" ? bodyEmpresaId.trim().toLowerCase() : "";
+    if (planta === EMPRESA_IDS.NARVAEZ || planta === EMPRESA_IDS.TEPEXI) {
+      return planta;
+    }
+    return null;
+  }
+
   if (perfil?.empresa_id) {
     return perfil.empresa_id;
   }
@@ -28,7 +43,9 @@ export async function GET() {
 
   try {
     if (user.role === "admin") {
-      const quotes = await listCotizacionesForAdmin();
+      const perfil = await getPerfilByCorreo(user.email);
+      const plantaScope = getAdminPlantaScope(user, perfil);
+      const quotes = await listCotizacionesForAdmin(plantaScope ?? undefined);
       return jsonResponse({ quotes });
     }
 
@@ -63,7 +80,16 @@ export async function POST(request) {
     const resistencia = typeof body.resistencia === "string" ? body.resistencia : "";
     const edad = typeof body.edad === "string" ? body.edad : "";
     const revenimiento = typeof body.revenimiento === "string" ? body.revenimiento : "";
-    const aditivo = typeof body.aditivo === "string" ? body.aditivo : "Ninguno";
+    let aditivo = "Ninguno";
+    if (Array.isArray(body.aditivo)) {
+      const names = body.aditivo
+        .filter((item) => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      aditivo = names.length > 0 ? names.join(", ") : "Ninguno";
+    } else if (typeof body.aditivo === "string" && body.aditivo.trim()) {
+      aditivo = body.aditivo.trim();
+    }
     const whatsappCliente =
       typeof body.whatsappCliente === "string" ? body.whatsappCliente.replace(/\D/g, "") : "";
     const volumen = Number(body.volumen);
@@ -105,10 +131,15 @@ export async function POST(request) {
       );
     }
 
-    const empresaId = resolveEmpresaId(user, perfil);
+    const empresaId = resolveEmpresaId(user, perfil, body.empresaId);
     if (!empresaId) {
       return jsonResponse(
-        { error: "La direccion no puede guardar cotizaciones sin una planta asignada." },
+        {
+          error:
+            user.role === "admin" && isGlobalAdmin(user)
+              ? "Selecciona la planta de destino (Narvaez o Tepexi)."
+              : "No hay planta asignada para este usuario.",
+        },
         400
       );
     }

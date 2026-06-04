@@ -1,20 +1,20 @@
-import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { userWithPerfilId } from "@/lib/auth/perfil";
 import { SESSION_COOKIE, getSessionCookieOptions, getSessionUser } from "@/lib/auth/session";
-import { jsonResponse } from "@/lib/http";
 
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
-    return jsonResponse({ user: null }, 401);
+    return NextResponse.json({ user: null }, { status: 401 });
   }
-  return jsonResponse({ user });
+  return NextResponse.json({ user: await userWithPerfilId(user) });
 }
 
 export async function DELETE() {
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, "", {
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(SESSION_COOKIE, "", {
     ...getSessionCookieOptions(),
     maxAge: 0,
   });
-  return jsonResponse({ ok: true });
+  return response;
 }

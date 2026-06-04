@@ -30,10 +30,9 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { getTenant, NEUTRAL_TENANT } from "@/lib/tenants/themes";
-import { DASHBOARD_MOCK_QUOTES } from "@/lib/dashboard/mockQuotes";
+import { isGlobalAdmin, isPlantAdmin } from "@/lib/auth/admin-scope";
+import { getTenant, NEUTRAL_TENANT, TENANTS } from "@/lib/tenants/themes";
 import {
-  DASHBOARD_MOCK_RECENT_QUOTES_LIMIT,
   DASHBOARD_RECENT_QUOTES_PAGE_SIZE,
   LEADERBOARD_PAGE_SIZE,
   VENDOR_CHART_TOP_LIMIT,
@@ -41,6 +40,7 @@ import {
   filterQuotesByEmpresa,
   filterRecentQuotes,
   getPlantaBadgeClass,
+  getPlantaEficienciaClass,
   getPlantaLabel,
   paginateRows,
   summarizeDashboardMetrics,
@@ -48,6 +48,11 @@ import {
 import { EMPRESA_IDS, ESTATUS, normalizeCotizacionEstatus } from "@/lib/supabase/schema";
 
 const IVA = 0.16;
+
+const ADMIN_QUOTE_PLANTA_OPTIONS = [
+  { value: EMPRESA_IDS.NARVAEZ, label: `${TENANTS.narvaez.name} (folio N)` },
+  { value: EMPRESA_IDS.TEPEXI, label: `${TENANTS.tepexi.name} (folio T)` },
+];
 
 const VENDOR_CHART_HEIGHTS = ["h-16", "h-20", "h-24", "h-28", "h-32", "h-36", "h-40"];
 
@@ -155,12 +160,19 @@ const AGE_COST_PER_M3 = {
 };
 
 const additiveCost = {
-  Ninguno: 0,
   "Fibra de polipropileno": 150,
   Impermeabilizante: 100,
 };
 
-const additiveOptions = Object.keys(additiveCost);
+const ADDITIVE_SELECT_OPTIONS = Object.keys(additiveCost);
+
+function getAdditiveRatePerM3(selectedAditivos) {
+  return selectedAditivos.reduce((sum, name) => sum + (additiveCost[name] ?? 0), 0);
+}
+
+function serializeAditivos(selectedAditivos) {
+  return selectedAditivos.length > 0 ? selectedAditivos.join(", ") : "Ninguno";
+}
 
 function getAgeCostPerM3(edad) {
   return AGE_COST_PER_M3[edad] ?? 0;
@@ -410,7 +422,7 @@ export default function Page() {
   const [resistencia, setResistencia] = useState("f'c 200");
   const [edad, setEdad] = useState("Normal 28 días");
   const [revenimiento, setRevenimiento] = useState("14 cm");
-  const [aditivo, setAditivo] = useState("Ninguno");
+  const [aditivos, setAditivos] = useState([]);
 
   const [bombaEstacionaria, setBombaEstacionaria] = useState(false);
   const [bombaPluma, setBombaPluma] = useState(false);
@@ -427,6 +439,7 @@ export default function Page() {
   const [saveError, setSaveError] = useState("");
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [displayFolio, setDisplayFolio] = useState("—");
+  const [adminPlantaEmision, setAdminPlantaEmision] = useState(EMPRESA_IDS.NARVAEZ);
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
   const [dashboardQuotes, setDashboardQuotes] = useState([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -451,11 +464,24 @@ export default function Page() {
   // Antes de iniciar sesion (o para la dirección) el tema es neutral.
   const tenant = useMemo(() => getTenant(sessionUser?.empresa), [sessionUser]);
   const themeClass = sessionUser ? tenant.themeClass : NEUTRAL_TENANT.themeClass;
+  const globalAdmin = isGlobalAdmin(sessionUser);
+  const plantAdmin = isPlantAdmin(sessionUser);
+
+  useEffect(() => {
+    if (!plantAdmin || !sessionUser?.empresa) {
+      return;
+    }
+
+    if (sessionUser.empresa === EMPRESA_IDS.NARVAEZ || sessionUser.empresa === EMPRESA_IDS.TEPEXI) {
+      setAdminPlantaEmision(sessionUser.empresa);
+      setDashboardPlantaFilter(sessionUser.empresa);
+    }
+  }, [plantAdmin, sessionUser?.empresa]);
 
   const loadSeguimientoQuotes = async () => {
     setSeguimientoLoading(true);
     try {
-      const response = await fetch("/api/quotes");
+      const response = await fetch("/api/quotes", { credentials: "include" });
       if (!response.ok) {
         setSeguimientoQuotes([]);
         return;
@@ -473,21 +499,16 @@ export default function Page() {
   const loadDashboardQuotes = async () => {
     setDashboardLoading(true);
     try {
-      if (process.env.NEXT_PUBLIC_DASHBOARD_MOCK === "false") {
-        const response = await fetch("/api/quotes");
-        if (!response.ok) {
-          setDashboardQuotes([]);
-          return;
-        }
-
-        const data = await response.json();
-        setDashboardQuotes(Array.isArray(data.quotes) ? data.quotes : []);
+      const response = await fetch("/api/quotes", { credentials: "include" });
+      if (!response.ok) {
+        setDashboardQuotes([]);
         return;
       }
 
-      setDashboardQuotes(DASHBOARD_MOCK_QUOTES);
+      const data = await response.json();
+      setDashboardQuotes(Array.isArray(data.quotes) ? data.quotes : []);
     } catch {
-      setDashboardQuotes(DASHBOARD_MOCK_QUOTES);
+      setDashboardQuotes([]);
     } finally {
       setDashboardLoading(false);
     }
@@ -529,15 +550,10 @@ export default function Page() {
     [leaderboardRows, leaderboardPage]
   );
 
-  const dashboardRecentQuotes = useMemo(() => {
-    const pool = filterRecentQuotes(dashboardFilteredQuotes, { last24Hours: true });
-
-    if (process.env.NEXT_PUBLIC_DASHBOARD_MOCK === "false") {
-      return pool;
-    }
-
-    return pool.slice(0, DASHBOARD_MOCK_RECENT_QUOTES_LIMIT);
-  }, [dashboardFilteredQuotes]);
+  const dashboardRecentQuotes = useMemo(
+    () => filterRecentQuotes(dashboardFilteredQuotes, { last24Hours: true }),
+    [dashboardFilteredQuotes]
+  );
 
   const dashboardRecentQuotesPagination = useMemo(
     () =>
@@ -557,13 +573,14 @@ export default function Page() {
   useEffect(() => {
     async function loadSession() {
       try {
-        const response = await fetch("/api/auth/session");
+        const response = await fetch("/api/auth/session", { credentials: "include" });
         if (!response.ok) {
           setView("login");
           return;
         }
 
         const data = await response.json();
+        clearWorkspaceForSession(data.user);
         setSessionUser(data.user);
         setEmail(data.user.email);
         setView(data.user.role === "admin" ? "dashboard" : "cotizador");
@@ -593,8 +610,8 @@ export default function Page() {
     const concreteSubtotal = baseM3 > 0 ? unitPrice * baseM3 : 0;
     const ageRate = getAgeCostPerM3(edad);
     const ageSubtotal = baseM3 > 0 ? ageRate * baseM3 : 0;
-    const additiveRate = additiveCost[aditivo] ?? 0;
-    const additiveSubtotal = baseM3 > 0 && aditivo !== "Ninguno" ? additiveRate * baseM3 : 0;
+    const additiveRate = getAdditiveRatePerM3(aditivos);
+    const additiveSubtotal = baseM3 > 0 && aditivos.length > 0 ? additiveRate * baseM3 : 0;
     const extrasSubtotal =
       (bombaEstacionaria ? extraServiceCost.bombaEstacionaria : 0) +
       (bombaPluma ? extraServiceCost.bombaPluma : 0) +
@@ -647,7 +664,7 @@ export default function Page() {
     resistencia,
     edad,
     revenimiento,
-    aditivo,
+    aditivos,
     bombaEstacionaria,
     bombaPluma,
     domingo,
@@ -661,6 +678,12 @@ export default function Page() {
 
   const cpDetected = cp.trim() === "72000";
   const formLocked = Boolean(emittedQuote);
+
+  const toggleAditivo = (name, checked) => {
+    setAditivos((current) =>
+      checked ? [...current, name] : current.filter((item) => item !== name)
+    );
+  };
 
   const seguimientoDayTabs = useMemo(
     () => (view === "seguimiento" ? buildLast7DayTabs() : []),
@@ -708,6 +731,7 @@ export default function Page() {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
@@ -718,7 +742,9 @@ export default function Page() {
         return;
       }
 
+      clearWorkspaceForSession(data.user);
       setSessionUser(data.user);
+      setEmail(data.user.email);
       setPassword("");
       setShowPassword(false);
       setView(data.user.role === "admin" ? "dashboard" : "cotizador");
@@ -730,8 +756,10 @@ export default function Page() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    clearWorkspaceForSession(null);
     setSessionUser(null);
+    setEmail("");
     setPassword("");
     setShowPassword(false);
     setView("login");
@@ -765,6 +793,16 @@ export default function Page() {
       return null;
     }
 
+    if (globalAdmin) {
+      const plantaValida = ADMIN_QUOTE_PLANTA_OPTIONS.some(
+        (option) => option.value === adminPlantaEmision
+      );
+      if (!plantaValida) {
+        setSaveError("Selecciona la planta de destino de la cotizacion.");
+        return null;
+      }
+    }
+
     setIsSavingQuote(true);
 
     try {
@@ -772,6 +810,7 @@ export default function Page() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(globalAdmin ? { empresaId: adminPlantaEmision } : {}),
           cliente,
           solicitante,
           whatsappCliente: phone,
@@ -780,7 +819,7 @@ export default function Page() {
           resistencia,
           edad,
           revenimiento,
-          aditivo,
+          aditivo: serializeAditivos(aditivos),
           bombaEstacionaria,
           bombaPluma,
           domingo,
@@ -843,8 +882,6 @@ export default function Page() {
       return;
     }
 
-    setDocumentActionsOpen(true);
-
     const url = buildWhatsAppUrl(phone, {
       solicitante,
       cliente,
@@ -875,11 +912,58 @@ export default function Page() {
     );
   };
 
+  const unlockQuoteForm = () => {
+    setDocumentActionsOpen(false);
+    setEmittedQuote(null);
+    setDisplayFolio("—");
+    setSaveError("");
+  };
+
+  const handleCancelEmission = async () => {
+    if (!emittedQuote) {
+      unlockQuoteForm();
+      return;
+    }
+
+    if (emittedQuote.id) {
+      try {
+        const response = await fetch(`/api/quotes/${emittedQuote.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          setSaveError(data.error || "No fue posible cancelar la cotizacion emitida.");
+          return;
+        }
+
+        loadSeguimientoQuotes();
+        if (sessionUser?.role === "admin") {
+          loadDashboardQuotes();
+        }
+      } catch {
+        setSaveError("No fue posible conectar con el servidor.");
+        return;
+      }
+    }
+
+    unlockQuoteForm();
+  };
+
+  const canEditSeguimientoStatus = useCallback(
+    (quote) =>
+      sessionUser?.role !== "admin" ||
+      Boolean(sessionUser?.perfilId && quote.vendedorId === sessionUser.perfilId),
+    [sessionUser]
+  );
+
   const handleUpdateSeguimientoQuoteStatus = async (quoteId, status) => {
     setStatusUpdatingId(quoteId);
     try {
       const response = await fetch(`/api/quotes/${quoteId}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
@@ -892,6 +976,9 @@ export default function Page() {
       setSeguimientoQuotes((current) =>
         current.map((quote) => (quote.id === quoteId ? data.quote : quote))
       );
+      if (sessionUser?.role === "admin") {
+        loadDashboardQuotes();
+      }
     } catch {
       // Sin cambios locales si falla la actualizacion remota.
     } finally {
@@ -908,7 +995,7 @@ export default function Page() {
     setResistencia("f'c 200");
     setEdad("Normal 28 días");
     setRevenimiento("14 cm");
-    setAditivo("Ninguno");
+    setAditivos([]);
     setBombaEstacionaria(false);
     setBombaPluma(false);
     setDomingo(false);
@@ -922,7 +1009,29 @@ export default function Page() {
     setDisplayFolio("—");
     setEmittedQuote(null);
     setDocumentActionsOpen(false);
+    setIsSavingQuote(false);
   };
+
+  function clearWorkspaceForSession(nextUser) {
+    resetQuoteForm();
+    setSeguimientoQuotes([]);
+    setDashboardQuotes([]);
+    setSeguimientoLoading(false);
+    setDashboardLoading(false);
+    setStatusUpdatingId(null);
+    setLeaderboardPage(1);
+    setDashboardRecentQuotesPage(1);
+    setSeguimientoDayKey(todayDayKey());
+
+    if (nextUser && isPlantAdmin(nextUser)) {
+      setDashboardPlantaFilter(nextUser.empresa);
+      setAdminPlantaEmision(nextUser.empresa);
+      return;
+    }
+
+    setDashboardPlantaFilter("general");
+    setAdminPlantaEmision(EMPRESA_IDS.NARVAEZ);
+  }
 
   if (authLoading) {
     return (
@@ -975,8 +1084,8 @@ export default function Page() {
         <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-8">
           <div className="rounded-2xl border-l-4 border-slate-800 bg-white p-6 shadow-xl ring-1 ring-slate-200 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl">
             <div className="mb-7 text-center">
-              <DualBrandLogos size="login" className="mx-auto mb-8 w-full" priority />
-              <h1 className="text-lg font-bold tracking-tight text-slate-900">
+              <DualBrandLogos size="login" className="mx-auto mb-8" priority />
+              <h1 className="text-base font-bold uppercase tracking-wide text-slate-900 sm:text-lg">
                 Ecosistema de Cotización Corporativo
               </h1>
             </div>
@@ -1050,10 +1159,16 @@ export default function Page() {
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:items-end">
-                <button onClick={resetQuoteForm} className={newQuoteButtonClass}>
-                  <FilePlus className="h-4 w-4" />
-                  + Nueva Cotizacion
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button type="button" onClick={handleLogout} className={logoutButtonClass}>
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesion
+                  </button>
+                  <button type="button" onClick={resetQuoteForm} className={newQuoteButtonClass}>
+                    <FilePlus className="h-4 w-4" />
+                    + Nueva Cotizacion
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2 sm:w-[340px]">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Fecha</p>
@@ -1070,6 +1185,28 @@ export default function Page() {
               </div>
             </div>
           </header>
+
+          {globalAdmin && (
+            <article className={`mb-4 ${cardClass}`}>
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold uppercase tracking-wide text-slate-700">
+                  Planta de destino
+                </span>
+                <select
+                  value={adminPlantaEmision}
+                  onChange={(e) => setAdminPlantaEmision(e.target.value)}
+                  disabled={formLocked}
+                  className="w-full max-w-md rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-[var(--brand)] transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {ADMIN_QUOTE_PLANTA_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </article>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-5">
             <div className="space-y-4 lg:col-span-3">
@@ -1118,30 +1255,6 @@ export default function Page() {
 
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
-                  <MapPin className={sectionIconClass} />
-                  Paso 2 - Ubicacion
-                </h3>
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">Codigo Postal</span>
-                  <input
-                    value={cp}
-                    onChange={(e) => setCp(e.target.value)}
-                    placeholder="Escribe 72000 para demo"
-                    disabled={formLocked}
-                    className={`${inputCotizadorClass} px-3 py-2.5 text-sm`}
-                  />
-                </label>
-                {cpDetected && (
-                  <div className="mt-2">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Detectado: Puebla Centro | Zona 1 de flete
-                    </span>
-                  </div>
-                )}
-              </article>
-
-              <article className={cardClass}>
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <HardHat className={sectionIconClass} />
                   Paso 3 - Configuracion del concreto
                 </h3>
@@ -1165,7 +1278,21 @@ export default function Page() {
                   <SelectField label="Resistencia" value={resistencia} onChange={setResistencia} options={resistanceOptions} disabled={formLocked} />
                   <SelectField label="Edad" value={edad} onChange={setEdad} options={ageOptions} disabled={formLocked} />
                   <SelectField label="Revenimiento" value={revenimiento} onChange={setRevenimiento} options={slumpOptions} disabled={formLocked} />
-                  <SelectField label="Adicionante" value={aditivo} onChange={setAditivo} options={additiveOptions} disabled={formLocked} />
+                  <div className="sm:col-span-2">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Adicionante</span>
+                    <p className="mb-2 text-xs text-slate-500">Puedes elegir uno, ambos o ninguno.</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {ADDITIVE_SELECT_OPTIONS.map((name) => (
+                        <CheckOption
+                          key={name}
+                          label={`${name} (${money(additiveCost[name])} / m3)`}
+                          checked={aditivos.includes(name)}
+                          disabled={formLocked}
+                          onChange={(checked) => toggleAditivo(name, checked)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </article>
 
@@ -1239,7 +1366,31 @@ export default function Page() {
               </article>
             </div>
 
-            <aside className="quote-print-area lg:col-span-2">
+            <aside className="quote-print-area space-y-4 lg:col-span-2">
+              <article className={cardClass}>
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
+                  <MapPin className={sectionIconClass} />
+                  Paso 2 - Ubicacion
+                </h3>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Codigo Postal</span>
+                  <input
+                    value={cp}
+                    onChange={(e) => setCp(e.target.value)}
+                    placeholder="Escribe 72000 para demo"
+                    disabled={formLocked}
+                    className={`${inputCotizadorClass} px-3 py-2.5 text-sm`}
+                  />
+                </label>
+                {cpDetected && (
+                  <div className="mt-2">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Detectado: Puebla Centro | Zona 1 de flete
+                    </span>
+                  </div>
+                )}
+              </article>
+
               <article className={`sticky top-4 ${cardClass}`}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <Banknote className={sectionIconClass} />
@@ -1267,14 +1418,16 @@ export default function Page() {
                       <span className="font-semibold">{money(priceModel.ageSubtotal)}</span>
                     </li>
                   )}
-                  {priceModel.additiveSubtotal > 0 && (
-                    <li className="flex justify-between">
+                  {aditivos.map((name) => (
+                    <li key={name} className="flex justify-between">
                       <span>
-                        {aditivo} ({money(priceModel.additiveRate)} / m3)
+                        {name} ({money(additiveCost[name])} / m3)
                       </span>
-                      <span className="font-semibold">{money(priceModel.additiveSubtotal)}</span>
+                      <span className="font-semibold">
+                        {money(priceModel.baseM3 > 0 ? additiveCost[name] * priceModel.baseM3 : 0)}
+                      </span>
                     </li>
-                  )}
+                  ))}
                   <li className="flex justify-between">
                     <span>Servicios extra</span>
                     <span className="font-semibold">{money(priceModel.extrasSubtotal)}</span>
@@ -1326,31 +1479,50 @@ export default function Page() {
                   </li>
                 </ul>
 
-                <div className="no-print mt-4 grid grid-cols-2 gap-2">
-                  {!emittedQuote && (
+                <div className="no-print mt-4 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {!emittedQuote && (
+                      <button
+                        type="button"
+                        onClick={handleEmitQuote}
+                        disabled={isSavingQuote}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        <FilePlus className="h-4 w-4" />
+                        {isSavingQuote ? "Emitiendo..." : "Emitir Cotizacion"}
+                      </button>
+                    )}
                     <button
-                      onClick={handleEmitQuote}
+                      type="button"
+                      onClick={handleWhatsApp}
                       disabled={isSavingQuote}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+                      className={`flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 ${emittedQuote ? "col-span-2" : ""}`}
                     >
-                      <FilePlus className="h-4 w-4" />
-                      {isSavingQuote ? "Emitiendo..." : "Emitir Cotizacion"}
+                      <Send className="h-4 w-4" />
+                      {isSavingQuote ? "Procesando..." : "Enviar por WhatsApp"}
                     </button>
+                  </div>
+                  {emittedQuote && !documentActionsOpen && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadPdf}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Descargar PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePrintEmitted}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Imprimir Ahora
+                      </button>
+                    </div>
                   )}
-                  <button
-                    onClick={handleWhatsApp}
-                    disabled={isSavingQuote}
-                    className={`flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 ${emittedQuote ? "col-span-2" : ""}`}
-                  >
-                    <Send className="h-4 w-4" />
-                    {isSavingQuote ? "Procesando..." : "Enviar por WhatsApp"}
-                  </button>
                 </div>
-                {emittedQuote && (
-                  <p className="no-print mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                    Cotizacion {emittedQuote.folio_institucional} registrada. Precios congelados.
-                  </p>
-                )}
                 {saveError && (
                   <p className="no-print mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>
                 )}
@@ -1374,8 +1546,13 @@ export default function Page() {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <button type="button" onClick={handleLogout} className={logoutButtonClass}>
+                  <LogOut className="h-4 w-4" />
+                  Cerrar sesion
+                </button>
                 <button
+                  type="button"
                   onClick={() => {
                     resetQuoteForm();
                     setView("cotizador");
@@ -1429,8 +1606,9 @@ export default function Page() {
               <QuotesTable
                 quotes={seguimientoQuotesByDay}
                 loading={seguimientoLoading}
-                showVendor={false}
+                showVendor={sessionUser.role === "admin"}
                 showContact
+                canEditStatus={canEditSeguimientoStatus}
                 statusUpdatingId={statusUpdatingId}
                 onStatusChange={handleUpdateSeguimientoQuoteStatus}
                 statusBadge={statusBadge}
@@ -1458,11 +1636,12 @@ export default function Page() {
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <button onClick={handleLogout} className={logoutButtonClass}>
+                <button type="button" onClick={handleLogout} className={logoutButtonClass}>
                   <LogOut className="h-4 w-4" />
                   Cerrar sesion
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     resetQuoteForm();
                     setView("cotizador");
@@ -1476,11 +1655,13 @@ export default function Page() {
             </div>
           </header>
 
-          <DashboardPlantaFilters
-            value={dashboardPlantaFilter}
-            onChange={handleDashboardPlantaFilter}
-            className="mb-4"
-          />
+          {globalAdmin && (
+            <DashboardPlantaFilters
+              value={dashboardPlantaFilter}
+              onChange={handleDashboardPlantaFilter}
+              className="mb-4"
+            />
+          )}
 
           <div className="grid gap-3 sm:grid-cols-3">
             <MetricCard
@@ -1571,20 +1752,14 @@ export default function Page() {
             </div>
             <div className="space-y-2">
               <button
-                onClick={handleDownloadPdf}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                type="button"
+                onClick={handleCancelEmission}
+                className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
               >
-                <FileText className="h-4 w-4" />
-                Descargar PDF
+                Cancelar y corregir
               </button>
               <button
-                onClick={handlePrintEmitted}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                <Printer className="h-4 w-4" />
-                Imprimir Ahora
-              </button>
-              <button
+                type="button"
                 onClick={() => setDocumentActionsOpen(false)}
                 className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"
               >
@@ -1740,6 +1915,7 @@ function QuotesTable({
   showVendor,
   showContact = false,
   readOnlyStatus = false,
+  canEditStatus,
   statusUpdatingId,
   onStatusChange,
   statusBadge,
@@ -1759,7 +1935,17 @@ function QuotesTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className={`w-full text-left text-sm ${showContact ? "min-w-[760px]" : "min-w-[640px]"}`}>
+      <table
+        className={`w-full text-left text-sm ${
+          showContact && showVendor
+            ? "min-w-[900px]"
+            : showContact
+              ? "min-w-[760px]"
+              : showVendor
+                ? "min-w-[720px]"
+                : "min-w-[640px]"
+        }`}
+      >
         <thead className="sticky top-0 z-[1] bg-white text-xs uppercase text-slate-500">
           <tr>
             <th className="pb-2">Folio</th>
@@ -1779,11 +1965,13 @@ function QuotesTable({
               <td>{quote.fecha}</td>
               <td>{quote.cliente}</td>
               {showContact && <td className="whitespace-nowrap tabular-nums">{formatContactPhone(quote.whatsappCliente)}</td>}
-              {showVendor && <td>{quote.vendedorNombre}</td>}
+              {showVendor && (
+                <td className="font-medium text-slate-800">{quote.vendedorNombre ?? "—"}</td>
+              )}
               <td>{formatVolume(Number(quote.volumen) || 0)}</td>
               <td>{money(Number(quote.total) || 0)}</td>
               <td>
-                {readOnlyStatus ? (
+                {readOnlyStatus || (canEditStatus && !canEditStatus(quote)) ? (
                   <span className={`inline-flex ${statusBadge(quote.status)}`}>
                     {normalizeCotizacionEstatus(quote.status)}
                   </span>
@@ -1921,13 +2109,7 @@ function VendorLeaderboard({
                   </td>
                   <td className="px-5 py-3">
                     <span
-                      className={`inline-flex min-w-[3rem] justify-center rounded-lg px-2 py-1 text-sm font-bold tabular-nums ${
-                        row.eficienciaPct >= 40
-                          ? "bg-emerald-50 text-emerald-700"
-                          : row.eficienciaPct >= 20
-                            ? "bg-amber-50 text-amber-800"
-                            : "bg-slate-100 text-slate-600"
-                      }`}
+                      className={`inline-flex min-w-[3rem] justify-center rounded-lg px-2 py-1 text-sm font-bold tabular-nums ${getPlantaEficienciaClass(row.empresaId)}`}
                     >
                       {row.eficienciaPct}%
                     </span>
@@ -2021,30 +2203,63 @@ function DualBrandLogos({ size = "admin", className = "", priority = false }) {
   const isLogin = size === "login";
   const isAdmin = size === "admin";
 
-  const narvaezClass = isLogin || isAdmin ? "h-12 sm:h-14" : "h-9";
-  const tepexiClass = isLogin || isAdmin ? "h-12 sm:h-14" : "h-9";
-  const dividerClass =
-    isLogin || isAdmin ? "h-11 w-px bg-slate-300/80 sm:h-12" : "h-8 w-px bg-slate-300/70";
+  const loginSlotClass =
+    "flex h-16 w-[7.5rem] items-center justify-center sm:h-[4.75rem] sm:w-[8.5rem]";
+  const loginTepexiSlotClass =
+    "flex h-14 w-[6.25rem] items-center justify-center sm:h-[4.25rem] sm:w-[7rem]";
+  const loginImageClass = "max-h-full max-w-full object-contain";
+  const adminImageClass = "h-12 w-auto object-contain sm:h-14";
+  const compactImageClass = "h-9 w-auto object-contain";
+
+  const dividerClass = isLogin
+    ? "h-14 w-px shrink-0 bg-slate-300/80 sm:h-[4.25rem]"
+    : isAdmin
+      ? "h-11 w-px shrink-0 bg-slate-300/80 sm:h-12"
+      : "h-8 w-px shrink-0 bg-slate-300/70";
+
+  const renderLogo = (src, alt, { rounded = false, compact = false } = {}) => {
+    const imageClass = isLogin
+      ? loginImageClass
+      : isAdmin
+        ? `${adminImageClass}${rounded ? " rounded" : ""}`
+        : `${compactImageClass}${rounded ? " rounded" : ""}`;
+
+    if (isLogin) {
+      return (
+        <div className={compact ? loginTepexiSlotClass : loginSlotClass}>
+          <Image
+            src={src}
+            alt={alt}
+            width={160}
+            height={76}
+            className={imageClass}
+            priority={priority}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        width={150}
+        height={70}
+        className={imageClass}
+        priority={priority}
+      />
+    );
+  };
 
   return (
-    <div className={`flex shrink-0 items-center gap-2 sm:gap-3 ${className}`}>
-      <Image
-        src="/Logo-CN-Color.png"
-        alt="Concretos Narváez"
-        width={150}
-        height={70}
-        className={`${narvaezClass} w-auto object-contain`}
-        priority={priority}
-      />
-      <span className={`${dividerClass} shrink-0 rounded-full`} aria-hidden="true" />
-      <Image
-        src="/logo-tepexi.jpeg"
-        alt="Concretos Tepexi"
-        width={150}
-        height={70}
-        className={`${tepexiClass} w-auto rounded object-contain`}
-        priority={priority}
-      />
+    <div
+      className={`flex shrink-0 items-center ${
+        isLogin ? "justify-center gap-4 sm:gap-5" : "gap-2 sm:gap-3"
+      } ${className}`}
+    >
+      {renderLogo("/Logo-CN-Color.png", "Concretos Narváez")}
+      <span className={`${dividerClass} rounded-full`} aria-hidden="true" />
+      {renderLogo("/logo-tepexi.jpeg", "Concretos Tepexi", { rounded: true, compact: isLogin })}
     </div>
   );
 }

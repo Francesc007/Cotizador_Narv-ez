@@ -78,11 +78,27 @@ public/         # assets estaticos
 scripts/        # utilidades
 ```
 
-## Despliegue
+## Despliegue (Vercel)
 
-1. Configura `AUTH_SECRET` y `AUTH_USERS` en tu plataforma (Vercel, etc.)
-2. Ejecuta `npm run build`
-3. Despliega con `npm run start` o el adaptador de tu hosting
+El **login no usa Supabase Auth**. La sesión es la cookie `cn_session`, firmada con variables propias de la app. Configurar solo `NEXT_PUBLIC_SUPABASE_*` y el Site URL en Supabase **no habilita el inicio de sesión**.
+
+En Vercel → **Settings → Environment Variables** (Production y Preview):
+
+| Variable | Obligatoria para login | Notas |
+| --- | --- | --- |
+| `AUTH_SECRET` | Sí | Minimo 32 caracteres; debe ser el mismo valor en todos los entornos donde quieras sesiones validas |
+| `AUTH_USERS` | Sí | JSON en **una sola linea** (copia desde `.env.example`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | No (solo datos) | Cotizaciones / perfiles en base de datos |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No (solo datos) | Idem |
+| `SUPABASE_SERVICE_ROLE_KEY` | Recomendada | Escritura segura en servidor |
+
+El Site URL de Supabase (`https://tu-app.vercel.app`) aplica cuando integres **Supabase Auth** (OAuth, magic link). La app actual no redirige a `localhost:3000` ni a URLs de callback de Supabase.
+
+Tras el deploy, si el login falla revisa los logs de `/api/auth/login` en Vercel: un `503` indica `AUTH_SECRET` o `AUTH_USERS` faltantes o mal formados.
+
+1. Configura `AUTH_SECRET` y `AUTH_USERS`
+2. Opcional: variables Supabase para persistir cotizaciones
+3. Redeploy
 
 ## Repositorio
 
