@@ -20,7 +20,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* Vista autenticada: contener desbordes sin bloquear scroll interno de tablas */
+.app-view-main {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.app-view-section {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* ----------------------------------------------------------------
@@ -240,44 +255,153 @@ body {
 
 @media (max-width: 639px) {
   .nav-view-dock {
-    left: 0.75rem;
-    right: 0.75rem;
+    left: 0;
+    right: 0;
+    max-width: 100%;
     bottom: 0;
     justify-content: stretch;
     gap: 0.375rem;
     border-radius: 1rem 1rem 0 0;
-    padding: 0.5rem 0.5rem max(0.625rem, env(safe-area-inset-bottom, 0px));
+    padding: 0.5rem 0.625rem max(0.625rem, env(safe-area-inset-bottom, 0px));
   }
 
   .nav-view-dock button {
     flex: 1 1 0;
+    min-width: 0;
     justify-content: center;
     min-height: 2.75rem;
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+    font-size: 0.6875rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Tablas con scroll horizontal en pantallas pequenas */
+.table-scroll-touch,
+.quotes-table-scroll,
+.vendor-leaderboard-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+
+.quotes-table-scroll {
+  overflow-x: auto;
+}
+
+.vendor-leaderboard-scroll {
+  overflow-x: auto;
+}
+
+/* Cabeceras: logo, titulos y acciones alineados en movil */
+@media (max-width: 639px) {
+  .page-header-card {
+    overflow: hidden;
+  }
+
+  .page-header-brand {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.625rem;
+  }
+
+  .page-header-brand .vendor-panel-name,
+  .page-header-brand .vendor-panel-title,
+  .page-header-brand h2 {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .page-header-brand .vendor-panel-title {
+    font-size: 0.6875rem;
+    line-height: 1.35;
+    letter-spacing: 0.03em;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .page-header-meta {
+    width: 100%;
+    max-width: none;
+  }
+
+  .dual-brand-logos--header {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    max-width: 100%;
+  }
+
+  .dual-brand-logos--header img {
+    max-height: 2.75rem;
+    width: auto;
+  }
+
+  .app-card {
+    min-width: 0;
+  }
+
+  .vendor-leaderboard-table th,
+  .vendor-leaderboard-table td {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .vendor-leaderboard-table td:first-child {
+    white-space: normal;
+    max-width: 6.5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .vendor-top-chart {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .dashboard-planta-filters__buttons button {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
     font-size: 0.6875rem;
     line-height: 1.2;
   }
-}
 
-/* Tablas con scroll horizontal en pantallas pequenas */
-.table-scroll-touch {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-}
-
-@media (max-width: 639px) {
-  .vendor-leaderboard-table th,
-  .vendor-leaderboard-table td {
-    padding-left: 0.625rem;
-    padding-right: 0.625rem;
-    font-size: 0.8125rem;
+  .seguimiento-tablist {
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    padding-bottom: 0.25rem;
   }
 
-  .vendor-top-chart {
-    justify-content: flex-start;
-    padding-left: 0.25rem;
-    padding-right: 0.25rem;
+  .seguimiento-tablist::-webkit-scrollbar {
+    display: block;
+    height: 4px;
+  }
+
+  .seguimiento-tablist::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.65);
+  }
+
+  .dashboard-recent-quotes-scroll {
+    overflow-x: auto;
   }
 }
 

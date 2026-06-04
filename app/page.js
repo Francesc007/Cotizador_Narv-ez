@@ -82,7 +82,7 @@ const sectionIconClass = "h-5 w-5 shrink-0 text-[var(--brand)]";
 const vendorPanelNameClass =
   "vendor-panel-name text-lg font-semibold leading-snug sm:text-[20px]";
 const vendorPanelTitleClass =
-  "mt-1 text-sm font-bold uppercase tracking-wide text-slate-900";
+  "vendor-panel-title mt-1 text-sm font-bold uppercase tracking-wide text-slate-900";
 
 const seguimientoAccentBadgeClass =
   "rounded-full border border-red-300 bg-red-100 text-xs font-semibold text-red-700";
@@ -1044,14 +1044,14 @@ export default function Page() {
 
   return (
     <main
-      className={`min-h-screen bg-slate-100 text-slate-900 ${themeClass} ${
+      className={`app-view-main min-h-screen bg-slate-100 text-slate-900 ${themeClass} ${
         sessionUser
           ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] sm:pb-28"
           : ""
       }`}
     >
       {sessionUser && (
-        <div className="nav-view-dock fixed bottom-0 left-3 right-3 z-50 flex gap-1.5 rounded-t-2xl bg-white/95 p-1.5 shadow-lg ring-1 ring-slate-200 backdrop-blur sm:bottom-3 sm:left-auto sm:right-3 sm:w-auto sm:rounded-full">
+        <div className="nav-view-dock fixed bottom-0 left-0 right-0 z-50 flex max-w-full gap-1.5 rounded-t-2xl bg-white/95 p-1.5 shadow-lg ring-1 ring-slate-200 backdrop-blur sm:bottom-3 sm:left-auto sm:right-3 sm:w-auto sm:rounded-full">
           <button
             type="button"
             onClick={() => setView("cotizador")}
@@ -1150,21 +1150,21 @@ export default function Page() {
       )}
 
       {view === "cotizador" && sessionUser && (
-        <section className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
-          <header className={`mb-4 ${cardClass}`}>
+        <section className="app-view-section mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+          <header className={`page-header-card mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-start gap-2.5 sm:items-center sm:gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-1 shrink-0" />
-                  <div className="min-w-0">
+              <div className="min-w-0 flex-1">
+                <div className="page-header-brand flex items-start gap-2.5 sm:items-center sm:gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-0 shrink-0 sm:mt-1" />
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className={`${vendorPanelNameClass} truncate`}>{vendedorNombre}</p>
+                    <p className={`${vendorPanelNameClass} break-words sm:truncate`}>{vendedorNombre}</p>
                     <h2 className={`${vendorPanelTitleClass} text-balance`}>Cotizador de Concreto Premezclado</h2>
                   </div>
                 </div>
               </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-                <div className="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:flex-wrap sm:justify-end">
+              <div className="page-header-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:items-end">
+                <div className="flex w-full flex-col gap-2 sm:flex sm:flex-wrap sm:justify-end">
                   <button type="button" onClick={handleLogout} className={logoutButtonClass}>
                     <LogOut className="h-4 w-4" />
                     Cerrar sesion
@@ -1174,7 +1174,7 @@ export default function Page() {
                     + Nueva Cotizacion
                   </button>
                 </div>
-                <div className="grid w-full grid-cols-2 gap-2 sm:w-[340px]">
+                <div className="page-header-meta grid w-full grid-cols-2 gap-2 sm:w-[340px]">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Fecha</p>
                     <p className="flex items-center gap-1 text-xs font-semibold text-slate-800 sm:text-sm">
@@ -1213,8 +1213,8 @@ export default function Page() {
             </article>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-5">
-            <div className="order-2 space-y-4 lg:order-none lg:col-span-3">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-5">
+            <div className="order-2 min-w-0 space-y-4 lg:order-none lg:col-span-3">
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <Users className={sectionIconClass} />
@@ -1371,7 +1371,7 @@ export default function Page() {
               </article>
             </div>
 
-            <aside className="quote-print-area order-1 space-y-4 lg:order-none lg:col-span-2">
+            <aside className="quote-print-area order-1 min-w-0 space-y-4 lg:order-none lg:col-span-2">
               <article className={cardClass}>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                   <MapPin className={sectionIconClass} />
@@ -1538,20 +1538,20 @@ export default function Page() {
       )}
 
       {view === "seguimiento" && sessionUser && (
-        <section className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
-          <header className={`mb-4 ${cardClass}`}>
+        <section className="app-view-section mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+          <header className={`page-header-card mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-start gap-2.5 sm:items-center sm:gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-1 shrink-0" />
-                  <div className="min-w-0">
+              <div className="min-w-0 flex-1">
+                <div className="page-header-brand flex items-start gap-2.5 sm:items-center sm:gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-0 shrink-0 sm:mt-1" />
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Panel del vendedor</p>
-                    <p className={`${vendorPanelNameClass} truncate`}>{vendedorNombre}</p>
+                    <p className={`${vendorPanelNameClass} break-words sm:truncate`}>{vendedorNombre}</p>
                     <h2 className={`${vendorPanelTitleClass} text-balance`}>Seguimiento de cotizaciones</h2>
                   </div>
                 </div>
               </div>
-              <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+              <div className="page-header-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
                 <button type="button" onClick={handleLogout} className={logoutButtonClass}>
                   <LogOut className="h-4 w-4" />
                   Cerrar sesion
@@ -1589,7 +1589,7 @@ export default function Page() {
             />
           </div>
 
-          <article className={`${cardClass} overflow-hidden`}>
+          <article className={`${cardClass} min-w-0`}>
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-700">
                 <ListChecks className={sectionIconClass} />
@@ -1626,13 +1626,13 @@ export default function Page() {
       )}
 
       {view === "dashboard" && sessionUser?.role === "admin" && (
-        <section className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
-          <header className={`mb-4 ${cardClass}`}>
+        <section className="app-view-section mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+          <header className={`page-header-card mb-4 ${cardClass}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-start gap-2.5 sm:items-center sm:gap-3">
-                  <HeaderLogo tenant={tenant} large className="mt-1 shrink-0" />
-                  <div className="min-w-0">
+              <div className="min-w-0 flex-1">
+                <div className="page-header-brand flex items-start gap-2.5 sm:items-center sm:gap-3">
+                  <HeaderLogo tenant={tenant} large className="mt-0 shrink-0 sm:mt-1" />
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                       Panel de gerencia
                     </p>
@@ -1640,7 +1640,7 @@ export default function Page() {
                   </div>
                 </div>
               </div>
-              <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:w-auto sm:flex-row sm:items-center">
+              <div className="page-header-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <button type="button" onClick={handleLogout} className={logoutButtonClass}>
                   <LogOut className="h-4 w-4" />
                   Cerrar sesion
@@ -1690,8 +1690,8 @@ export default function Page() {
             />
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-3 lg:items-stretch">
-            <article className={`${cardClass} flex flex-col lg:col-span-1 lg:min-h-[19rem]`}>
+          <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-3 lg:items-stretch">
+            <article className={`${cardClass} flex min-w-0 flex-col lg:col-span-1 lg:min-h-[19rem]`}>
               <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-700 text-balance">
                 Top vendedores por monto
               </h3>
@@ -1782,7 +1782,7 @@ function SeguimientoFolderTabs({ tabs, activeKey, counts, onSelect, children }) 
   return (
     <div className="relative">
       <div
-        className="flex gap-1.5 overflow-x-auto pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="seguimiento-tablist flex gap-1.5 overflow-x-auto pb-0 sm:[-ms-overflow-style:none] sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden"
         role="tablist"
         aria-label="Cotizaciones por dia"
       >
@@ -1819,7 +1819,7 @@ function SeguimientoFolderTabs({ tabs, activeKey, counts, onSelect, children }) 
         })}
       </div>
 
-      <div className="rounded-b-2xl rounded-tr-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/40 p-3 sm:p-4">
+      <div className="min-w-0 rounded-b-2xl rounded-tr-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/40 p-3 sm:p-4">
         {children}
       </div>
     </div>
@@ -1853,7 +1853,7 @@ function DashboardRecentQuotesCard({
   const emptyMessage = `No hay cotizaciones en las ultimas 24 h para ${filterLabel}.`;
 
   return (
-    <article className={`${cardClass} flex flex-col lg:col-span-2 lg:min-h-[19rem]`}>
+    <article className={`${cardClass} flex min-w-0 flex-col lg:col-span-2 lg:min-h-[19rem]`}>
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">
@@ -1939,7 +1939,7 @@ function QuotesTable({
   }
 
   return (
-    <div className="table-scroll-touch -mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0">
+    <div className="table-scroll-touch quotes-table-scroll overflow-x-auto">
       <table
         className={`w-full text-left text-sm ${
           showContact && showVendor
@@ -2006,7 +2006,7 @@ function DashboardPlantaFilters({ value, onChange, className = "" }) {
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Filtro de planta
       </p>
-      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+      <div className="dashboard-planta-filters__buttons grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
         <button
           type="button"
           onClick={() => onChange("general")}
@@ -2046,7 +2046,7 @@ function VendorLeaderboard({
     plantaFilter === "general" ? "todas las plantas" : getPlantaLabel(plantaFilter);
 
   return (
-    <article className={`${cardClass} mt-4`}>
+    <article className={`${cardClass} mt-4 min-w-0`}>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">
@@ -2061,8 +2061,8 @@ function VendorLeaderboard({
         </p>
       </div>
 
-      <div className="table-scroll-touch flex justify-start overflow-x-auto px-1 sm:justify-center sm:px-2">
-        <div className="vendor-leaderboard-frame inline-block overflow-hidden rounded-xl border border-slate-200 bg-white ring-1 ring-slate-200/80">
+      <div className="table-scroll-touch vendor-leaderboard-scroll flex justify-start overflow-x-auto sm:justify-center">
+        <div className="vendor-leaderboard-frame w-max max-w-none overflow-hidden rounded-xl border border-slate-200 bg-white ring-1 ring-slate-200/80">
           <table className="vendor-leaderboard-table w-auto text-center text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -2128,7 +2128,7 @@ function VendorLeaderboard({
       </div>
 
       {!loading && totalRows > 0 && (
-        <div className="leaderboard-pagination mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+        <div className="leaderboard-pagination mt-4 flex w-full min-w-0 flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -2259,7 +2259,7 @@ function DualBrandLogos({ size = "admin", className = "", priority = false }) {
   return (
     <div
       className={`flex shrink-0 items-center ${
-        isLogin ? "justify-center gap-4 sm:gap-5" : "gap-2 sm:gap-3"
+        isLogin ? "justify-center gap-4 sm:gap-5" : "dual-brand-logos--header gap-2 sm:gap-3"
       } ${className}`}
     >
       {renderLogo("/Logo-CN-Color.png", "Concretos Narváez")}
