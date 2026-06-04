@@ -1816,7 +1816,7 @@ function DashboardRecentQuotesCard({
   const emptyMessage = `No hay cotizaciones en las ultimas 24 h para ${filterLabel}.`;
 
   return (
-    <article className={`${cardClass} flex min-w-0 flex-col lg:col-span-2 lg:min-h-[19rem]`}>
+    <article className={`dashboard-recent-quotes-card ${cardClass} flex min-w-0 flex-col lg:col-span-2 lg:min-h-[19rem]`}>
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">
@@ -1834,7 +1834,12 @@ function DashboardRecentQuotesCard({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="dashboard-recent-quotes-scroll min-h-0 flex-1 overflow-y-auto overflow-x-auto">
+        <div
+          className="dashboard-table-panel dashboard-recent-quotes-scroll min-h-0 flex-1"
+          role="region"
+          aria-label="Cotizaciones recientes, desliza para ver todas las filas"
+          tabIndex={0}
+        >
           <QuotesTable
             quotes={quotes}
             loading={loading}
@@ -2024,7 +2029,12 @@ function VendorLeaderboard({
         </p>
       </div>
 
-      <div className="vendor-leaderboard-scroll table-scroll-touch" role="region" aria-label="Tabla de rendimiento por vendedor">
+      <div
+        className="dashboard-table-panel vendor-leaderboard-scroll"
+        role="region"
+        aria-label="Rendimiento por vendedor, desliza para ver todas las filas"
+        tabIndex={0}
+      >
         <div className="vendor-leaderboard-frame">
           <table className="vendor-leaderboard-table text-center text-sm">
           <thead>

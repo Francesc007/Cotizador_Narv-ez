@@ -230,21 +230,96 @@ body {
   max-width: 100%;
 }
 
-/* Cotizaciones recientes: altura util en movil y tablet */
-.dashboard-recent-quotes-scroll {
-  max-height: min(52vh, 22rem);
+/* Paneles de tablas del dashboard: scroll propio, sin pelear con la pagina */
+.dashboard-table-panel {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-gutter: stable;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
-@media (min-width: 640px) {
+.dashboard-table-panel:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, #94a3b8);
+  outline-offset: 2px;
+}
+
+.dashboard-table-panel::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.dashboard-table-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid #f1f5f9;
+  background: #94a3b8;
+}
+
+.dashboard-table-panel::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+/* Una sola zona de scroll: el panel padre (evita scroll anidado vertical) */
+.dashboard-recent-quotes-scroll .quotes-table-scroll {
+  overflow: visible;
+  width: max-content;
+  min-width: 100%;
+  touch-action: inherit;
+}
+
+.dashboard-recent-quotes-scroll {
+  max-height: min(52dvh, 22rem);
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
   .dashboard-recent-quotes-scroll {
-    max-height: min(48vh, 20rem);
+    max-height: min(46dvh, 20rem);
   }
 }
 
 @media (min-width: 1024px) {
   .dashboard-recent-quotes-scroll {
     max-height: 14rem;
+    border: none;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .dashboard-table-panel.dashboard-recent-quotes-scroll {
+    border: none;
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/* Leaderboard: scroll horizontal + vertical dentro de la tarjeta */
+.vendor-leaderboard-scroll.dashboard-table-panel {
+  overflow: auto;
+  touch-action: pan-x pan-y;
+}
+
+@media (max-width: 1023px) {
+  .dashboard-table-panel.vendor-leaderboard-scroll {
+    max-height: min(48dvh, 22rem);
+    min-height: 6.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .vendor-leaderboard-scroll.dashboard-table-panel {
+    max-height: none;
+    border: none;
+    background-color: transparent;
+    box-shadow: none;
   }
 }
 
@@ -300,7 +375,7 @@ body {
   overflow: visible;
 }
 
-.vendor-leaderboard-scroll {
+.vendor-leaderboard-scroll:not(.dashboard-table-panel) {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -567,6 +642,40 @@ body {
   .app-view-main:has(.nav-view-dock) {
     padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px)) !important;
   }
+
+  .dashboard-recent-quotes-card,
+  .vendor-leaderboard-card {
+    min-width: 0;
+  }
+
+  .dashboard-table-panel.dashboard-recent-quotes-scroll {
+    max-height: min(62dvh, calc(100dvh - 9.5rem));
+    min-height: 9.5rem;
+    padding: 0.25rem;
+    scrollbar-width: auto;
+  }
+
+  .dashboard-table-panel.vendor-leaderboard-scroll {
+    max-height: min(58dvh, calc(100dvh - 8.5rem));
+    min-height: 8.5rem;
+    padding: 0.25rem;
+    scrollbar-width: auto;
+  }
+
+  .dashboard-table-panel::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  .dashboard-table-panel::-webkit-scrollbar-thumb {
+    border-width: 3px;
+    background: #64748b;
+  }
+
+  .dashboard-table-panel {
+    overscroll-behavior: contain;
+    isolation: isolate;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -627,19 +736,12 @@ body {
     min-width: 0;
   }
 
-  .vendor-leaderboard-scroll {
-    scrollbar-width: thin;
-    padding-bottom: 0.25rem;
+  .dashboard-table-panel {
+    scrollbar-width: auto;
   }
 
-  .vendor-leaderboard-scroll::-webkit-scrollbar {
-    display: block;
-    height: 5px;
-  }
-
-  .vendor-leaderboard-scroll::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.7);
+  .vendor-leaderboard-scroll.dashboard-table-panel {
+    padding-bottom: 0.125rem;
   }
 
   .vendor-leaderboard-table th,
@@ -689,9 +791,6 @@ body {
     background: rgba(148, 163, 184, 0.65);
   }
 
-  .dashboard-recent-quotes-scroll {
-    overflow-x: auto;
-  }
 }
 
 /* Resumen de cotizacion: sticky solo en escritorio */
